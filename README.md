@@ -13,6 +13,7 @@ VERN is not a programming language in English. It is a universal imperative gram
 Existing programming languages require users to learn English keywords as a prerequisite to computation. Internationalization efforts translate user interfaces and documentation — but the code itself remains English. VERN makes the executable vocabulary the localization target. A programmer writes code in their own language. The machine runs it.
 
 This is distinct from:
+
 - **i18n** — translating UI strings while code stays English
 - **l10n** — adapting regional formats while code stays English
 - **DSLs** — specialized English vocabulary for specific domains
@@ -26,8 +27,11 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 |---|---|
-| `VERN_Invariant_Grammar_v0.1.1.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0.1.1.md` | The full language specification. Syntax, grammar rules, reference system, data handling, core operations, and examples. |
+| `VERN_spec_v0_2.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, imports, extended math, conditionals, repetition, scripts, error recovery, date and time, string operations, and examples. |
+| `VERN_Invariant_Grammar_v0_2.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic — all verified collision-free. |
+| `VERN_Next_Steps_v0_3.md` | Current project status and v0.3 priorities. |
+| `VERN_The_Computational_Rosetta_Stone.md` | Architectural manifesto and design philosophy. |
+| `VERN_vs_CNL_Landscape_Comparative_Analysis.md` | Competitive positioning against existing controlled natural languages and historical precedents. |
 
 ---
 
@@ -99,7 +103,7 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.1.1 — Specification complete, interpreter not yet implemented.**
+**Current version: v0.2 — Specification complete, interpreter not yet implemented.**
 
 The specification is implementation-ready. An interpreter has not yet been built. Contributions toward a reference implementation are noted as a future priority.
 
@@ -107,7 +111,7 @@ The specification is implementation-ready. An interpreter has not yet been built
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0.1.1.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_2.md`.
 
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
