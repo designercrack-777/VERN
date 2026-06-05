@@ -1,7 +1,7 @@
-# VERN Invariant Grammar Specification v0.5
+# VERN Invariant Grammar Specification v0.3
 ## Universal Imperative Grammar with Vocabulary Bindings
 
-**Document Version:** 5.0
+**Document Version:** 3.0
 **Date:** 2026-06-04
 **Author:** The VERN Project
 **Status:** Public Prior Art — All rights reserved
@@ -60,7 +60,7 @@ CONTAINER ::= HASH IDENTIFIER
               (SET_KW REFERENCE TO_KW VALUE)*
 
 SCRIPT ::= SCRIPT_HEADER [CONTAINER_TAG] INSTRUCTION* END_SCRIPT
-SCRIPT_HEADER ::= SCRIPT_KW REFERENCE [TAKES_KW REFERENCE (SEPARATOR REFERENCE)*]
+SCRIPT_HEADER ::= SCRIPT_KW REFERENCE
 END_SCRIPT ::= END_KW SCRIPT_KW
 CONTAINER_TAG ::= HASH IDENTIFIER
 
@@ -105,43 +105,6 @@ INSTRUCTION ::= SHOW_INSTRUCTION
               | DELETE_INSTRUCTION
               | EXIST_INSTRUCTION
               | GET_FILES_INSTRUCTION
-              | SINE_INSTRUCTION
-              | COSINE_INSTRUCTION
-              | TANGENT_INSTRUCTION
-              | ARCSINE_INSTRUCTION
-              | ARCCOSINE_INSTRUCTION
-              | ARCTANGENT_INSTRUCTION
-              | HYPERBOLIC_SINE_INSTRUCTION
-              | HYPERBOLIC_COSINE_INSTRUCTION
-              | HYPERBOLIC_TANGENT_INSTRUCTION
-              | ARC_HYPERBOLIC_SINE_INSTRUCTION
-              | ARC_HYPERBOLIC_COSINE_INSTRUCTION
-              | ARC_HYPERBOLIC_TANGENT_INSTRUCTION
-              | LN_INSTRUCTION
-              | LOG_INSTRUCTION
-              | TO_DEGREES_INSTRUCTION
-              | TO_RADIANS_INSTRUCTION
-              | SUM_INSTRUCTION
-              | FACTORIAL_INSTRUCTION
-              | COMBINATIONS_INSTRUCTION
-              | PERMUTATIONS_INSTRUCTION
-              | SIGN_INSTRUCTION
-              | EXIT_LOOP_INSTRUCTION
-              | NEXT_ITEM_INSTRUCTION
-              | SPLIT_INSTRUCTION
-              | JOIN_INSTRUCTION
-              | TRIM_INSTRUCTION
-              | UPPERCASE_INSTRUCTION
-              | LOWERCASE_INSTRUCTION
-              | SORT_INSTRUCTION
-              | REVERSE_INSTRUCTION
-              | SLICE_INSTRUCTION
-              | COMBINE_INSTRUCTION
-              | REPEAT_THROUGH_DICTIONARY_INSTRUCTION
-              | GET_DICTIONARY_INSTRUCTION
-              | PUT_DICTIONARY_INSTRUCTION
-              | REMOVE_DICTIONARY_INSTRUCTION
-              | COUNT_DICTIONARY_INSTRUCTION
 
 SHOW_INSTRUCTION   ::= SHOW_KW (REFERENCE | VALUE) (SEPARATOR (REFERENCE | VALUE))*
 ASK_INSTRUCTION    ::= ASK_KW REFERENCE
@@ -154,7 +117,7 @@ IF_BLOCK_INSTRUCTION ::= IF_KW CONDITION INSTRUCTION* [OTHERWISE_KW INSTRUCTION*
 END_IF             ::= END_KW IF_KW
 WHILE_INSTRUCTION  ::= WHILE_KW CONDITION INSTRUCTION* END_WHILE
 END_WHILE          ::= END_KW WHILE_KW
-RUN_INSTRUCTION    ::= RUN_KW REFERENCE [WITH_KW (VALUE | REFERENCE) (SEPARATOR (VALUE | REFERENCE))*] [CONTAINER_TAG]
+RUN_INSTRUCTION    ::= RUN_KW REFERENCE [CONTAINER_TAG]
 STOP_INSTRUCTION   ::= STOP_KW
 
 CONVERT_INSTRUCTION ::= CONVERT_KW (REFERENCE | LOOP_KW | CURRENT_ITEM_KW) TO_KW TYPE_KW AS_KW REFERENCE
@@ -207,56 +170,6 @@ FILE_REFERENCE ::= PERIOD IDENTIFIER PERIOD VERN_KW (PERIOD IDENTIFIER PERIOD FO
 DIR_REFERENCE  ::= PERIOD IDENTIFIER PERIOD FOLDER_KW (PERIOD IDENTIFIER PERIOD FOLDER_KW)* (PERIOD PARENT_KW)?
                  | PERIOD PARENT_KW
 
-SINE_INSTRUCTION       ::= SINE_KW REFERENCE [RADIANS_KW] AS_KW REFERENCE
-COSINE_INSTRUCTION     ::= COSINE_KW REFERENCE [RADIANS_KW] AS_KW REFERENCE
-TANGENT_INSTRUCTION    ::= TANGENT_KW REFERENCE [RADIANS_KW] AS_KW REFERENCE
-ARCSINE_INSTRUCTION    ::= ARCSINE_KW REFERENCE [RADIANS_KW] AS_KW REFERENCE
-ARCCOSINE_INSTRUCTION  ::= ARCCOSINE_KW REFERENCE [RADIANS_KW] AS_KW REFERENCE
-ARCTANGENT_INSTRUCTION ::= ARCTANGENT_KW REFERENCE [REFERENCE] [RADIANS_KW] AS_KW REFERENCE
-
-HYPERBOLIC_SINE_INSTRUCTION      ::= HYPERBOLIC_KW SINE_KW REFERENCE AS_KW REFERENCE
-HYPERBOLIC_COSINE_INSTRUCTION    ::= HYPERBOLIC_KW COSINE_KW REFERENCE AS_KW REFERENCE
-HYPERBOLIC_TANGENT_INSTRUCTION   ::= HYPERBOLIC_KW TANGENT_KW REFERENCE AS_KW REFERENCE
-ARC_HYPERBOLIC_SINE_INSTRUCTION  ::= ARC_KW HYPERBOLIC_KW SINE_KW REFERENCE AS_KW REFERENCE
-ARC_HYPERBOLIC_COSINE_INSTRUCTION ::= ARC_KW HYPERBOLIC_KW COSINE_KW REFERENCE AS_KW REFERENCE
-ARC_HYPERBOLIC_TANGENT_INSTRUCTION ::= ARC_KW HYPERBOLIC_KW TANGENT_KW REFERENCE AS_KW REFERENCE
-
-LN_INSTRUCTION  ::= LN_KW REFERENCE AS_KW REFERENCE
-LOG_INSTRUCTION ::= LOG_KW REFERENCE [BASE_KW (NUMBER | REFERENCE)] AS_KW REFERENCE
-
-TO_DEGREES_INSTRUCTION ::= TO_KW DEGREES_KW REFERENCE AS_KW REFERENCE
-TO_RADIANS_INSTRUCTION ::= TO_KW RADIANS_KW REFERENCE AS_KW REFERENCE
-
-SUM_INSTRUCTION          ::= SUM_KW LIST_KW LIST_REF AS_KW REFERENCE
-FACTORIAL_INSTRUCTION    ::= FACTORIAL_KW REFERENCE AS_KW REFERENCE
-COMBINATIONS_INSTRUCTION ::= COMBINATIONS_KW REFERENCE REFERENCE AS_KW REFERENCE
-PERMUTATIONS_INSTRUCTION ::= PERMUTATIONS_KW REFERENCE REFERENCE AS_KW REFERENCE
-SIGN_INSTRUCTION         ::= SIGN_KW REFERENCE AS_KW REFERENCE
-
-EXIT_LOOP_INSTRUCTION ::= EXIT_KW LOOP_KW
-NEXT_ITEM_INSTRUCTION ::= NEXT_KW ITEM_KW
-
-SPLIT_INSTRUCTION     ::= SPLIT_KW REFERENCE BY_KW (TEXT | REFERENCE) AS_KW LIST_KW LIST_REF
-JOIN_INSTRUCTION      ::= JOIN_KW LIST_KW LIST_REF BY_KW (TEXT | REFERENCE) AS_KW REFERENCE
-TRIM_INSTRUCTION      ::= TRIM_KW REFERENCE AS_KW REFERENCE
-UPPERCASE_INSTRUCTION ::= UPPERCASE_KW REFERENCE AS_KW REFERENCE
-LOWERCASE_INSTRUCTION ::= LOWERCASE_KW REFERENCE AS_KW REFERENCE
-
-SORT_INSTRUCTION    ::= SORT_KW LIST_KW LIST_REF [DESCENDING_KW] AS_KW LIST_KW LIST_REF
-REVERSE_INSTRUCTION ::= REVERSE_KW LIST_KW LIST_REF AS_KW LIST_KW LIST_REF
-SLICE_INSTRUCTION   ::= SLICE_KW LIST_KW LIST_REF (NUMBER | REFERENCE) TO_KW (NUMBER | REFERENCE) AS_KW LIST_KW LIST_REF
-COMBINE_INSTRUCTION ::= COMBINE_KW LIST_KW LIST_REF WITH_KW LIST_KW LIST_REF AS_KW LIST_KW LIST_REF
-
-DICT_REF ::= IDENTIFIER (REFERENCE)?
-
-DICTIONARY_BLOCK ::= DICTIONARY_KW IDENTIFIER (TEXT COLON VALUE)* END_KW DICTIONARY_KW
-
-GET_DICTIONARY_INSTRUCTION    ::= GET_KW DICTIONARY_KW DICT_REF KEY_KW (TEXT | REFERENCE) AS_KW REFERENCE
-PUT_DICTIONARY_INSTRUCTION    ::= PUT_KW REFERENCE IN_KW DICTIONARY_KW DICT_REF KEY_KW (TEXT | REFERENCE)
-REMOVE_DICTIONARY_INSTRUCTION ::= REMOVE_KW KEY_KW (TEXT | REFERENCE) FROM_KW DICTIONARY_KW DICT_REF
-COUNT_DICTIONARY_INSTRUCTION  ::= COUNT_KW DICTIONARY_KW DICT_REF AS_KW REFERENCE
-REPEAT_THROUGH_DICTIONARY_INSTRUCTION ::= REPEAT_KW THROUGH_KW DICTIONARY_KW DICT_REF INSTRUCTION* END_REPEAT
-
 CONDITION ::= EXPRESSION COMPARISON_OP EXPRESSION
             | NOT_KW CONDITION
             | CONDITION AND_KW CONDITION
@@ -265,21 +178,12 @@ CONDITION ::= EXPRESSION COMPARISON_OP EXPRESSION
             | EXPRESSION NOT_IN_KW LIST_KW LIST_REF
             | EXPRESSION IS_IN_KW REFERENCE
             | EXPRESSION NOT_IN_KW REFERENCE
-            | EXPRESSION IS_IN_KW DICTIONARY_KW DICT_REF
-            | EXPRESSION NOT_IN_KW DICTIONARY_KW DICT_REF
-            | REFERENCE STARTS_WITH_KW (TEXT | REFERENCE)
-            | REFERENCE ENDS_WITH_KW (TEXT | REFERENCE)
-
-COLON ::= ":"
-
-CONSTANT ::= PI_KW | E_KW | TAU_KW | INFINITY_KW
 
 EXPRESSION ::= VALUE
              | REFERENCE
              | LOOP_KW
              | CURRENT_ITEM_KW
              | FAIL_REASON_KW
-             | CONSTANT
              | EXPRESSION MATH_OP EXPRESSION
              | EXPRESSION POWER_KW NUMBER
              | EXPRESSION ROOT_KW NUMBER
@@ -415,49 +319,6 @@ The following tokens must be mapped by every vocabulary binding. Symbol operator
 | `FOLDER_KW` | directory descriptor in file reference chain |
 | `PARENT_KW` | system root descriptor in file reference chain |
 | `VERN_KW` | file extension descriptor in file reference chain |
-| `SINE_KW` | sine operation |
-| `COSINE_KW` | cosine operation |
-| `TANGENT_KW` | tangent operation |
-| `ARCSINE_KW` | arcsine operation |
-| `ARCCOSINE_KW` | arccosine operation |
-| `ARCTANGENT_KW` | arctangent operation (single and two-argument) |
-| `HYPERBOLIC_KW` | hyperbolic modifier |
-| `ARC_KW` | arc modifier for hyperbolic inverses |
-| `LN_KW` | natural logarithm |
-| `LOG_KW` | base 10 or arbitrary base logarithm |
-| `BASE_KW` | arbitrary base marker |
-| `PI_KW` | pi constant |
-| `E_KW` | e constant |
-| `TAU_KW` | tau constant |
-| `INFINITY_KW` | infinity constant |
-| `DEGREES_KW` | degrees conversion target |
-| `RADIANS_KW` | radians modifier / conversion target |
-| `SUM_KW` | sum of a numeric list |
-| `FACTORIAL_KW` | factorial operation |
-| `COMBINATIONS_KW` | combinations operation |
-| `PERMUTATIONS_KW` | permutations operation |
-| `SIGN_KW` | sign of a number |
-| `EXIT_KW` | first word of exit loop compound |
-| `NEXT_KW` | first word of next item compound |
-| `ITEM_KW` | second word of next item compound (existing item role unchanged) |
-| `BY_KW` | delimiter marker in split and join |
-| `SPLIT_KW` | split text into list |
-| `JOIN_KW` | join list into text |
-| `TRIM_KW` | trim whitespace from text |
-| `UPPERCASE_KW` | convert text to uppercase |
-| `LOWERCASE_KW` | convert text to lowercase |
-| `STARTS_WITH_KW` | starts with condition (compound) |
-| `ENDS_WITH_KW` | ends with condition (compound) |
-| `SORT_KW` | sort a list |
-| `DESCENDING_KW` | descending sort modifier |
-| `REVERSE_KW` | reverse a list |
-| `SLICE_KW` | extract a portion of a list |
-| `COMBINE_KW` | combine two lists |
-| `DICTIONARY_KW` | dictionary identifier |
-| `KEY_KW` | dictionary key marker |
-| `CURRENT_KEY_KW` | implicit current key (read-only, repeat through dictionary only) |
-| `CURRENT_VALUE_KW` | implicit current value (read-only, repeat through dictionary only) |
-| `TAKES_KW` | script parameter declaration marker |
 
 ### Invariant Properties
 
@@ -587,49 +448,6 @@ DELETE_KW                          delete
 FILES_KW                           files
 FOLDER_KW                          folder
 PARENT_KW                          parent
-SINE_KW                            sine
-COSINE_KW                          cosine
-TANGENT_KW                         tangent
-ARCSINE_KW                         arcsine
-ARCCOSINE_KW                       arccosine
-ARCTANGENT_KW                      arctangent
-HYPERBOLIC_KW                      hyperbolic
-ARC_KW                             arc
-LN_KW                              ln
-LOG_KW                             log
-BASE_KW                            base
-PI_KW                              pi
-E_KW                               e
-TAU_KW                             tau
-INFINITY_KW                        infinity
-DEGREES_KW                         degrees
-RADIANS_KW                         radians
-SUM_KW                             sum
-FACTORIAL_KW                       factorial
-COMBINATIONS_KW                    combinations
-PERMUTATIONS_KW                    permutations
-SIGN_KW                            sign
-EXIT_KW                            exit
-NEXT_KW                            next
-ITEM_KW                            item
-BY_KW                              by
-SPLIT_KW                           split
-JOIN_KW                            join
-TRIM_KW                            trim
-UPPERCASE_KW                       uppercase
-LOWERCASE_KW                       lowercase
-STARTS_WITH_KW                     starts with
-ENDS_WITH_KW                       ends with
-SORT_KW                            sort
-DESCENDING_KW                      descending
-REVERSE_KW                         reverse
-SLICE_KW                           slice
-COMBINE_KW                         combine
-DICTIONARY_KW                      dictionary
-KEY_KW                             key
-CURRENT_KEY_KW                     current key
-CURRENT_VALUE_KW                   current value
-TAKES_KW                           takes
 ```
 
 ---
@@ -732,49 +550,6 @@ DELETE_KW                          futa
 FILES_KW                           faili
 FOLDER_KW                          folda
 PARENT_KW                          mzizi wa mfumo
-SINE_KW                            sinusi
-COSINE_KW                          kosinusi
-TANGENT_KW                         tanjenti
-ARCSINE_KW                         arkisinusi
-ARCCOSINE_KW                       arkikosinusi
-ARCTANGENT_KW                      arkitanjenti
-HYPERBOLIC_KW                      hiperboliki
-ARC_KW                             arki
-LN_KW                              logariti asili
-LOG_KW                             logariti
-BASE_KW                            msingi
-PI_KW                              pai
-E_KW                               e
-TAU_KW                             tau
-INFINITY_KW                        usio na kikomo
-DEGREES_KW                         digrii
-RADIANS_KW                         radiani
-SUM_KW                             jumla
-FACTORIAL_KW                       faktoria
-COMBINATIONS_KW                    mchanganyiko
-PERMUTATIONS_KW                    mpangilio
-SIGN_KW                            ishara
-EXIT_KW                            toka
-NEXT_KW                            ifuatayo
-ITEM_KW                            kipande
-BY_KW                              kwa kipande
-SPLIT_KW                           gawanya maandishi
-JOIN_KW                            unganisha
-TRIM_KW                            kata nafasi
-UPPERCASE_KW                       herufi kubwa
-LOWERCASE_KW                       herufi ndogo
-STARTS_WITH_KW                     inaanza na
-ENDS_WITH_KW                       inaishia na
-SORT_KW                            panga
-DESCENDING_KW                      kushuka
-REVERSE_KW                         geuza mpangilio
-SLICE_KW                           kata sehemu
-COMBINE_KW                         unganisha orodha
-DICTIONARY_KW                      kamusi
-KEY_KW                             ufunguo
-CURRENT_KEY_KW                     ufunguo wa sasa
-CURRENT_VALUE_KW                   thamani ya sasa
-TAKES_KW                           inachukua
 ```
 
 ---
@@ -877,49 +652,6 @@ DELETE_KW                          消去する               shōkyo suru
 FILES_KW                           ファイル               fairu
 FOLDER_KW                          フォルダ               foruda
 PARENT_KW                          ルート                 rūto
-SINE_KW                            サイン                 sain
-COSINE_KW                          コサイン               kosain
-TANGENT_KW                         タンジェント           tanjento
-ARCSINE_KW                         逆サイン               gyaku sain
-ARCCOSINE_KW                       逆コサイン             gyaku kosain
-ARCTANGENT_KW                      逆タンジェント         gyaku tanjento
-HYPERBOLIC_KW                      双曲線                 sōkyokusen
-ARC_KW                             逆双曲線               gyaku sōkyokusen
-LN_KW                              自然対数               shizen taisū
-LOG_KW                             対数                   taisū
-BASE_KW                            底                     tei
-PI_KW                              円周率                 enshūritsu
-E_KW                               e                      e
-TAU_KW                             タウ                   tau
-INFINITY_KW                        無限大                 mugendai
-DEGREES_KW                         度                     do
-RADIANS_KW                         ラジアン               rajian
-SUM_KW                             合計                   gōkei
-FACTORIAL_KW                       階乗                   kaijō
-COMBINATIONS_KW                    組合せ                 kumiawase
-PERMUTATIONS_KW                    順列                   junretsu
-SIGN_KW                            符号                   fugō
-EXIT_KW                            抜ける                 nukeru
-NEXT_KW                            次の                   tsugi no
-ITEM_KW                            項目                   kōmoku
-BY_KW                              区切り                 kukiri
-SPLIT_KW                           分割する               bunkatsu suru
-JOIN_KW                            結合する               ketsugō suru
-TRIM_KW                            空白除去               kūhaku jokyo
-UPPERCASE_KW                       大文字にする           ōmoji ni suru
-LOWERCASE_KW                       小文字にする           komoji ni suru
-STARTS_WITH_KW                     で始まる               de hajimaru
-ENDS_WITH_KW                       で終わる               de owaru
-SORT_KW                            並べ替える             narabaekaeru
-DESCENDING_KW                      降順                   kōjun
-REVERSE_KW                         逆順にする             gyakujun ni suru
-SLICE_KW                           切り出す               kiridasu
-COMBINE_KW                         連結する               renketsu suru
-DICTIONARY_KW                      辞書                   jisho
-KEY_KW                             キー                   kī
-CURRENT_KEY_KW                     現在のキー             genzai no kī
-CURRENT_VALUE_KW                   現在の値               genzai no atai
-TAKES_KW                           受け取る               uketoru
 ```
 
 
@@ -1026,49 +758,6 @@ DELETE_KW                          امسح                   imḥi
 FILES_KW                           ملفات                  malaffāt
 FOLDER_KW                          مجلد                   mijlad
 PARENT_KW                          الجذر                  al-jadhr
-SINE_KW                            جيب                    jayb
-COSINE_KW                          جيب التمام             jayb al-tamām
-TANGENT_KW                         ظل                     ẓill
-ARCSINE_KW                         قوس الجيب              qaws al-jayb
-ARCCOSINE_KW                       قوس جيب التمام         qaws jayb al-tamām
-ARCTANGENT_KW                      قوس الظل               qaws al-ẓill
-HYPERBOLIC_KW                      زائدي                  zāʾidī
-ARC_KW                             قوس                    qaws
-LN_KW                              لوغاريتم طبيعي         lūghārītm ṭabīʿī
-LOG_KW                             لوغاريتم               lūghārītm
-BASE_KW                            أساس                   asās
-PI_KW                              باي                    bāy
-E_KW                               e                      e
-TAU_KW                             تاو                    tāw
-INFINITY_KW                        لانهاية                lā nihāya
-DEGREES_KW                         درجات                  darajāt
-RADIANS_KW                         راديان                 rādiyān
-SUM_KW                             مجموع                  majmūʿ
-FACTORIAL_KW                       مضروب                  maḍrūb
-COMBINATIONS_KW                    توافيق                 tawāfīq
-PERMUTATIONS_KW                    تباديل                 tabādīl
-SIGN_KW                            إشارة                  ishāra
-EXIT_KW                            اخرج                   ukhruj
-NEXT_KW                            التالي                 al-tālī
-ITEM_KW                            عنصر                   ʿunṣur
-BY_KW                              بفاصل                  bi-fāṣil
-SPLIT_KW                           قسّم                   qassim
-JOIN_KW                            ادمج                   idmij
-TRIM_KW                            أزل المسافات           azil al-masāfāt
-UPPERCASE_KW                       حروف كبيرة             ḥurūf kabīra
-LOWERCASE_KW                       حروف صغيرة             ḥurūf ṣaghīra
-STARTS_WITH_KW                     يبدأ بـ                yabdaʾ bi-
-ENDS_WITH_KW                       ينتهي بـ               yantahī bi-
-SORT_KW                            رتّب                   rattib
-DESCENDING_KW                      تنازلي                 tanāzulī
-REVERSE_KW                         اعكس                   iʿkis
-SLICE_KW                           استخرج جزء             istakhrij juzʾ
-COMBINE_KW                         ادمج قائمة             idmij qāʾima
-DICTIONARY_KW                      قاموس                  qāmūs
-KEY_KW                             مفتاح                  miftāḥ
-CURRENT_KEY_KW                     المفتاح الحالي         al-miftāḥ al-ḥālī
-CURRENT_VALUE_KW                   القيمة الحالية         al-qīma al-ḥāliyya
-TAKES_KW                           يأخذ                   yaʾkhudh
 ```
 
 
