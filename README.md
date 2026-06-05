@@ -26,8 +26,8 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 |---|---|
-| `VERN_Invariant_Grammar_v0_3.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_3.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, imports, extended math, conditionals, repetition, scripts, error recovery, date and time, string operations, file operations, and core operations. |
+| `VERN_Invariant_Grammar_v0_5.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_5.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, error recovery, date and time, string operations, file operations, and core operations. |
 
 ---
 
@@ -83,6 +83,18 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Key Features
 
+**Dictionaries** — key-value data structures with full iteration, membership checks, and cross-file access. Keys are always text. Values are homogeneous by type. `current key` and `current value` follow the same pattern as `current item` in list iteration.
+
+**Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration. Both are resolved as two-word compounds, consistent with existing compound token patterns.
+
+**Script parameters** — scripts may declare named input parameters using `takes`. Values are passed positionally using `with` on the `run` call. Parameters are local to the script and not typed at declaration.
+
+**Extended string operations** — `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts with`, `ends with`. All non-destructive. `starts with` and `ends with` are compound condition tokens used exclusively in `if` statements.
+
+**Extended list operations** — `sort`, `reverse`, `slice`, `combine`. All non-destructive. Results always assigned to a new named list.
+
+**Extended math** — trigonometric operations (`sine`, `cosine`, `tangent` and inverses, hyperbolic forms), logarithms (natural, base 10, arbitrary base), mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations (`sum`, `factorial`, `combinations`, `permutations`, `sign`). All non-destructive, all strictly numeric.
+
 **Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing. What you see is what runs.
 
 **Period-chain referencing** — values, scripts, files, and folders are referenced by containment chain reading specific to general: `.valuename.scriptname.script.filename.vern`. Directory navigation uses `.folder` and `.parent` descriptors. The minimum necessary chain is always used.
@@ -103,7 +115,7 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.3 — Specification complete, interpreter not yet implemented.**
+**Current version: v0.5 — Specification complete, interpreter not yet implemented.**
 
 The specification is implementation-ready. An interpreter has not yet been built. Contributions toward a reference implementation are noted as a future priority.
 
@@ -111,7 +123,7 @@ The specification is implementation-ready. An interpreter has not yet been built
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_3.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_5.md`.
 
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
