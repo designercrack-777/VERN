@@ -28,6 +28,9 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 |---|---|
 | `VERN_Invariant_Grammar_v0_6.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
 | `VERN_spec_v0_6.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, error recovery, date and time, string operations, file operations, core operations, type checking, number formatting, multi-line text, and networking. |
+| `VERN_Next_Steps_v0_6.md` | Current project status and orientation document. |
+| `VERN_Next_Steps_Post_v0_6.md` | Forward paths for the post-interpreter phase — documentation, distribution, licensing, standard library, and ecosystem. |
+| `VERN_interpreter/` | Complete Python interpreter implementing every feature in the v0.6 spec. |
 
 ---
 
@@ -83,11 +86,11 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Key Features
 
-**Nested data structures** — dictionaries of dictionaries and lists of dictionaries. Built from flat file-level declarations linked by reference. Access is two steps: retrieve the inner structure, then operate on it. Consistent with the language's flat, explicit design philosophy.
+**Nested data structures** — dictionaries of dictionaries and lists of dictionaries. Built from flat file-level declarations linked by reference. Access is two steps: retrieve the inner structure, then operate on it.
 
-**Type checking** — `type of .value as .result` returns the data type of any value as a text string. Works on value references and implicit loop keywords. Useful for values whose type may not be known at write time.
+**Type checking** — `type of .value as .result` returns the data type of any value as a text string. Works on value references and implicit loop keywords.
 
-**Number formatting** — `format .number as .result decimals 2 thousands` prepares numbers for display with controlled decimal places, thousands separators, and padding. Extends the existing `format` instruction.
+**Number formatting** — `format .number as .result decimals 2 thousands` prepares numbers for display with controlled decimal places, thousands separators, and padding.
 
 **Multi-line text** — `text .valuename` / `end text` blocks declare file-level values holding structured text across multiple lines. Content is treated as raw text — reserved words are not parsed inside blocks.
 
@@ -95,29 +98,27 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 **Dictionaries** — key-value data structures with full iteration, membership checks, and cross-file access. Keys are always text. Values are homogeneous by type. `current key` and `current value` follow the same pattern as `current item` in list iteration.
 
-**Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration. Both are resolved as two-word compounds, consistent with existing compound token patterns.
+**Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration.
 
-**Script parameters** — scripts may declare named input parameters using `takes`. Values are passed positionally using `with` on the `run` call. Parameters are local to the script and not typed at declaration.
+**Script parameters** — scripts may declare named input parameters using `takes`. Values are passed positionally using `with` on the `run` call.
 
-**Extended string operations** — `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts with`, `ends with`. All non-destructive. `starts with` and `ends with` are compound condition tokens used exclusively in `if` statements.
+**Extended string operations** — `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts with`, `ends with`. All non-destructive.
 
 **Extended list operations** — `sort`, `reverse`, `slice`, `combine`. All non-destructive. Results always assigned to a new named list.
 
-**Extended math** — trigonometric operations (`sine`, `cosine`, `tangent` and inverses, hyperbolic forms), logarithms (natural, base 10, arbitrary base), mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations (`sum`, `factorial`, `combinations`, `permutations`, `sign`). All non-destructive, all strictly numeric.
+**Extended math** — trigonometric operations, logarithms, mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations. All non-destructive.
 
-**Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing. What you see is what runs.
+**Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing.
 
-**Period-chain referencing** — values, scripts, files, and folders are referenced by containment chain reading specific to general: `.valuename.scriptname.script.filename.vern`. Directory navigation uses `.folder` and `.parent` descriptors. The minimum necessary chain is always used.
+**Period-chain referencing** — values, scripts, files, and folders referenced by containment chain reading specific to general.
 
-**Container system** — named data pools tagged with `#` allow context-switching without separate scripts. The same value resolves differently depending on which container is active. Built for localization.
+**Container system** — named data pools tagged with `#` allow context-switching without separate scripts. Built for localization.
 
-**Explicit type conversion** — no implicit coercion. `convert .value to number as .newvalue` is the only way to change types. Text can be converted to date or time types when the input matches the required format exactly. The original is never modified.
+**Explicit type conversion** — no implicit coercion. `convert .value to number as .newvalue` is the only way to change types.
 
-**While loops and branching** — `while` loops run as long as a condition holds. `otherwise` provides a clean true/false branch inside `if` blocks. Both are fully nestable.
+**File operations** — read, write, append, delete, and check existence of files. List directory contents.
 
-**File operations** — read, write, append, delete, and check existence of files. List directory contents. All file references use the standard period chain extended with `.folder` and `.parent` descriptors.
-
-**Extensible vocabulary** — users define new words mapped to script calls: `define "greet" as run .greet.script`. Domain experts build their own vocabulary on top of the grammar.
+**Extensible vocabulary** — users define new words mapped to script calls: `define "greet" as run .greet.script`.
 
 **Universal localizability** — every keyword is a replaceable slot in the invariant grammar. To create a new language binding, map each token to the target language's imperative equivalent. Programs in any binding execute identically.
 
@@ -125,9 +126,11 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.6 — Specification complete. Interpreter build beginning.**
+**Current version: v0.6 — Specification complete. Interpreter complete. Packaged and installed.**
 
-The specification is implementation-ready. v0.6 is the final specification version before interpreter development begins. The recommended build order is documented in `VERN_Next_Steps_v0_6.md`.
+VERN is a working programming language. The v0.6 interpreter implements every feature in the specification. A standalone Windows executable (`vern.exe`) is built and installed. Six example programs run correctly. All 267 automated tests pass.
+
+The next phase covers documentation, distribution, licensing, standard library, and ecosystem development. See `VERN_Next_Steps_Post_v0_6.md` for the full forward paths document.
 
 ---
 
