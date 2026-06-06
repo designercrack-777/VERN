@@ -1,0 +1,12 @@
+// demo_fatal.vern
+// Demonstrates a halting fatal error — referencing a value that was never declared.
+// Execution stops and the error is written to the log.
+
+script .main
+    show "starting program"
+    show .missingvalue
+    show "this line never runs"
+end script
+
+start at .main.script
+stop

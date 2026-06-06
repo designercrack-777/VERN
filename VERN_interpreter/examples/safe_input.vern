@@ -1,0 +1,27 @@
+// Safe number input with recovery — retries until valid
+
+set .value to 0
+set .succeeded to false
+
+script .main
+    while .succeeded = false
+        attempt
+            ask .input
+            convert .input to number as .value
+            set .succeeded to true
+        if fail
+            show "invalid input, please enter a number"
+        end fail
+        end attempt
+    end while
+    run .calculate.script
+end script
+
+script .calculate
+    set .doubled to .value * 2
+    convert .doubled to text as .doubledtext
+    show "result: " + .doubledtext
+end script
+
+start at .main.script
+stop

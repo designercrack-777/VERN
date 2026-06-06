@@ -1,0 +1,37 @@
+// Quiz program written in VERN
+
+set .question1 to "example question 1"
+set .question2 to "example question 2"
+set .question3 to "example question 3"
+set .question4 to "example question 4"
+set .question5 to "example question 5"
+set .correct1 to "example answer 1"
+set .correct2 to "example answer 2"
+set .correct3 to "example answer 3"
+set .correct4 to "example answer 4"
+set .correct5 to "example answer 5"
+
+script .quiz
+    set .score to 0
+    show .question1
+    ask .answer1
+    if .answer1 = .correct1 then set .score to .score + 1
+    show .question2
+    ask .answer2
+    if .answer2 = .correct2 then set .score to .score + 1
+    show .question3
+    ask .answer3
+    if .answer3 = .correct3 then set .score to .score + 1
+    show .question4
+    ask .answer4
+    if .answer4 = .correct4 then set .score to .score + 1
+    show .question5
+    ask .answer5
+    if .answer5 = .correct5 then set .score to .score + 1
+    if .score >= 4 then show "great job", .score
+    if .score < 4 then show "better luck next time", .score
+end script
+
+start at .quiz.script
+
+stop

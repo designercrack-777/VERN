@@ -1,0 +1,30 @@
+// Name registry using collections
+
+list names
+end list
+
+script .main
+    run .collect.script
+    run .display.script
+end script
+
+script .collect
+    ask .howmany
+    convert .howmany to number as .count
+    repeat .count times
+        ask .input
+        put .input in list names
+    end repeat
+end script
+
+script .display
+    count list names as .total
+    convert .total to text as .totaltext
+    show "total entries: " + .totaltext
+    repeat through list names
+        show current item
+    end repeat
+end script
+
+start at .main.script
+stop

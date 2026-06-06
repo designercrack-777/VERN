@@ -1,0 +1,34 @@
+// Multilingual greeter using containers
+
+#english
+    set .greeting to "hello"
+    set .farewell to "goodbye"
+    set .prompt to "what is your name?"
+
+#spanish
+    set .greeting to "hola"
+    set .farewell to "adios"
+    set .prompt to "como te llamas?"
+
+#swahili
+    set .greeting to "habari"
+    set .farewell to "kwaheri"
+    set .prompt to "jina lako ni nani?"
+
+script .greet
+    show .greeting
+    show .prompt
+    ask .username
+    show .greeting, .username
+    show .farewell
+end script
+
+script .main
+    ask .language
+    if .language = "english" then run .greet.script #english
+    if .language = "spanish" then run .greet.script #spanish
+    if .language = "swahili" then run .greet.script #swahili
+end script
+
+start at .main.script
+stop

@@ -1,0 +1,15 @@
+// Calculate days until a future date
+
+set .target to 2026-12-31
+set .remaining to 0
+
+script .main
+    get date as .today
+    difference between .today and .target in days as .remaining
+    convert .remaining to text as .remainingtext
+    format .target as .displaytarget using "DD/MO/YYYY"
+    show "days until " + .displaytarget + ": " + .remainingtext
+end script
+
+start at .main.script
+stop

@@ -1,0 +1,20 @@
+// Calculator program written in VERN
+
+script .calculation
+    ask .number1input
+    convert .number1input to number as .number1
+    show .number1
+    ask .operator
+    show .number1, .operator
+    ask .number2input
+    convert .number2input to number as .number2
+    show .number1, .operator, .number2
+    if .operator = "+" then set .number3 to .number1 + .number2
+    if .operator = "-" then set .number3 to .number1 - .number2
+    if .operator = "x" or .operator = "*" then set .number3 to .number1 * .number2
+    if .operator = "/" then set .number3 to .number1 / .number2
+    show .number1, .operator, .number2, "=", .number3
+end script
+
+start at .calculation.script
+stop

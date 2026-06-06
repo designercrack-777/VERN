@@ -1,0 +1,67 @@
+// demo_fileio.vern
+// Demonstrates VERN file I/O: write, read, append, exist, get files, delete
+
+list filenames
+end list
+
+script .main
+    // ── Write ────────────────────────────────────────────────────────────────
+    // Write two values to a file. Creates the file if it does not exist.
+    // Overwrites if it does.
+    set .name to "Alice"
+    set .score to "95"
+    write .name, .score to .scores.vern
+    show "wrote to scores.vern"
+
+    // ── Read ─────────────────────────────────────────────────────────────────
+    // Read the values back. Values map to lines 1, 2, 3... in the file.
+    read .readname, .readscore from .scores.vern
+    show "read back: " + .readname + " scored " + .readscore
+
+    // ── Append ───────────────────────────────────────────────────────────────
+    // Append adds to the end without overwriting.
+    set .name2 to "Bob"
+    set .score2 to "87"
+    append .name2, .score2 to .scores.vern
+    show "appended Bob and 87"
+
+    // Read all four values to confirm
+    read .n1, .s1, .n2, .s2 from .scores.vern
+    show "all entries:"
+    show .n1 + " - " +.s1
+    show .n2 + " - " +.s2
+
+    // ── Exist ─────────────────────────────────────────────────────────────────
+    // Check whether a file is present before acting on it.
+    if .scores.vern exist
+        show "scores.vern exists: true"
+    end if
+
+    // Exist also works for directories.
+    if .examples.folder exist
+        show "examples folder exists: true"
+    end if
+
+    // ── Get files ────────────────────────────────────────────────────────────
+    // List the contents of a directory into a list.
+    get files in .examples.folder as list filenames
+    show "files in examples folder:"
+    repeat through list filenames
+        show "  " + current item
+    end repeat
+
+    // ── Delete ───────────────────────────────────────────────────────────────
+    // Recommended pattern: always check exist before deleting.
+    if .scores.vern exist then delete .scores.vern
+    show "deleted scores.vern"
+
+    // Confirm deletion
+    if .scores.vern exist
+        show "error: file still present"
+    otherwise
+        show "confirmed: scores.vern is gone"
+    end if
+end script
+
+start at .main.script
+stop

@@ -1,0 +1,172 @@
+// demo_collections.vern
+// Exercises every list operation: declare, put, remove, get, count,
+// repeat through, sort ascending, sort descending, reverse, slice,
+// combine, is in / not in, exit loop, next item.
+
+list scores
+    85
+    92
+    74
+    88
+    67
+end list
+
+list names
+    "alice"
+    "bob"
+    "charlie"
+    "diana"
+    "eve"
+end list
+
+// Result lists must be declared before non-destructive operations.
+list rankedscores
+end list
+
+list bottomscores
+end list
+
+list reversednames
+end list
+
+list subset
+end list
+
+list merged
+end list
+
+script .main
+    // ── Count ────────────────────────────────────────────────────────────────
+    count list scores as .total
+    convert .total to text as .t
+    show "count scores: " + .t
+
+    count list names as .ntotal
+    convert .ntotal to text as .nt
+    show "count names: " + .nt
+
+    // ── Get by position ──────────────────────────────────────────────────────
+    get list scores 1 as .first
+    convert .first to text as .firsttext
+    show "position 1: " + .firsttext
+
+    get list scores 3 as .third
+    convert .third to text as .thirdtext
+    show "position 3: " + .thirdtext
+
+    get list names 2 as .secondname
+    show "name at 2: " + .secondname
+
+    // ── Put ─────────────────────────────────────────────────────────────────
+    put 100 in list scores
+    count list scores as .aftertotal
+    convert .aftertotal to text as .at
+    show "after put 100, count: " + .at
+
+    // ── Remove ──────────────────────────────────────────────────────────────
+    remove 74 from list scores
+    count list scores as .removedtotal
+    convert .removedtotal to text as .rt
+    show "after remove 74, count: " + .rt
+
+    // Remove a value not in the list — non-fatal warning, continues.
+    remove 999 from list scores
+
+    // ── Membership: is in / not in ──────────────────────────────────────────
+    if 92 is in list scores then show "92 is in scores: true"
+    if 74 not in list scores then show "74 not in scores: true"
+    if "alice" is in list names then show "alice is in names: true"
+    if "zara" not in list names then show "zara not in names: true"
+
+    // ── Repeat through list ──────────────────────────────────────────────────
+    show "--- all scores ---"
+    repeat through list scores
+        set .item to current item
+        convert .item to text as .itemtext
+        show "  " + .itemtext
+    end repeat
+
+    show "--- all names ---"
+    repeat through list names
+        show "  " + current item
+    end repeat
+
+    // ── Sort ascending ───────────────────────────────────────────────────────
+    sort list scores as list rankedscores
+    show "--- sorted ascending ---"
+    repeat through list rankedscores
+        set .s to current item
+        convert .s to text as .st
+        show "  " + .st
+    end repeat
+
+    // Verify original list is unchanged
+    get list scores 1 as .originalfirst
+    convert .originalfirst to text as .oft
+    show "original scores[1] unchanged: " + .oft
+
+    // ── Sort descending ──────────────────────────────────────────────────────
+    sort list scores descending as list rankedscores
+    show "--- sorted descending ---"
+    repeat through list rankedscores
+        set .s to current item
+        convert .s to text as .st
+        show "  " + .st
+    end repeat
+
+    // ── Reverse ──────────────────────────────────────────────────────────────
+    reverse list names as list reversednames
+    show "--- reversed names ---"
+    repeat through list reversednames
+        show "  " + current item
+    end repeat
+
+    // Verify original unchanged
+    get list names 1 as .nameone
+    show "names[1] still: " + .nameone
+
+    // ── Slice ────────────────────────────────────────────────────────────────
+    slice list names 2 to 4 as list subset
+    show "--- slice names 2 to 4 ---"
+    repeat through list subset
+        show "  " + current item
+    end repeat
+
+    // ── Combine ──────────────────────────────────────────────────────────────
+    combine list names with list reversednames as list merged
+    count list merged as .mergedcount
+    convert .mergedcount to text as .mc
+    show "combined count (names + reversednames): " + .mc
+
+    // Verify originals unchanged
+    count list names as .namescount
+    convert .namescount to text as .nc
+    show "names still has: " + .nc
+
+    // ── Exit loop ────────────────────────────────────────────────────────────
+    show "--- exit loop at charlie ---"
+    repeat through list names
+        if current item = "charlie" then exit loop
+        show "  " + current item
+    end repeat
+    show "loop exited"
+
+    // ── Next item ────────────────────────────────────────────────────────────
+    show "--- next item skips bob ---"
+    repeat through list names
+        if current item = "bob" then next item
+        show "  " + current item
+    end repeat
+
+    // ── Loop counter ─────────────────────────────────────────────────────────
+    show "--- loop counter ---"
+    repeat through list names
+        convert loop to text as .loopnum
+        show "  " + .loopnum + ": " + current item
+    end repeat
+
+    show "all list operations complete"
+end script
+
+start at .main.script
+stop

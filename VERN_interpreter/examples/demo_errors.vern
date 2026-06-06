@@ -1,0 +1,40 @@
+// demo_errors.vern
+// Demonstrates both non-fatal (warning) and recovered fatal errors.
+// The program completes successfully despite both errors occurring.
+
+list colours
+    "red"
+    "green"
+    "blue"
+end list
+
+set .input to "not a number"
+set .result to 0
+set .valid to false
+
+script .main
+    // Non-fatal: "purple" is not in the list — logged as a warning, execution continues
+    remove "purple" from list colours
+
+    show "colours after removal attempt:"
+    repeat through list colours
+        show current item
+    end repeat
+
+    // Recoverable fatal: converting non-numeric text to a number fails —
+    // caught by attempt block, logged as a recovered error, execution continues
+    attempt
+        convert .input to number as .result
+        set .valid to true
+    if fail
+        show "could not convert input — " + fail reason
+    end fail
+    end attempt
+
+    // Prove execution continued past both errors
+    show "valid: false"
+    show "program completed successfully"
+end script
+
+start at .main.script
+stop

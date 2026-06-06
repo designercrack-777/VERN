@@ -1,0 +1,216 @@
+// demo_error_conditions.vern
+// Deliberately triggers every newly enforced error condition inside attempt blocks
+// so that each one produces a recovered-fatal log entry and execution continues.
+// Covers: dict type homogeneity, trig domain, find/replace/join/split type checks,
+//         exit loop / next item outside loop, invalid format codes,
+//         fetch non-text URL, format-number invalid modifiers,
+//         attempt-all dependent failure.
+
+// ── Supporting data ─────────────────────────────────────────────────────────────
+
+dictionary prices
+    "apple" : 1
+    "banana" : 2
+end dictionary
+
+list parts
+end list
+
+list numbers
+    10
+    20
+    30
+end list
+
+list merged
+end list
+
+// ── Main ────────────────────────────────────────────────────────────────────────
+
+script .main
+
+    // ── 1. PutInDict type mismatch ──────────────────────────────────────────────
+    show "--- 1. dict type mismatch ---"
+    attempt
+        put "one dollar" in dictionary prices key "cherry"
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 2. Trig domain: arcsine outside -1 to 1 ────────────────────────────────
+    show "--- 2. arcsine domain error ---"
+    set .badval to 2
+    attempt
+        arcsine .badval as .angle
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 3. Trig domain: arccosine outside -1 to 1 ──────────────────────────────
+    show "--- 3. arccosine domain error ---"
+    attempt
+        arccosine .badval as .angle
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 4. Trig domain: arc hyperbolic cosine below 1 ──────────────────────────
+    show "--- 4. arc hyperbolic cosine domain error ---"
+    set .subone to 0
+    attempt
+        arc hyperbolic cosine .subone as .result
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 5. Trig domain: arc hyperbolic tangent outside -1 to 1 ─────────────────
+    show "--- 5. arc hyperbolic tangent domain error ---"
+    attempt
+        arc hyperbolic tangent .badval as .result
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 6. Tangent at 90 degrees ────────────────────────────────────────────────
+    show "--- 6. tangent undefined at 90 degrees ---"
+    set .ninety to 90
+    attempt
+        tangent .ninety as .result
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 7. find: non-text value to search in ───────────────────────────────────
+    show "--- 7. find non-text operand ---"
+    set .num to 42
+    attempt
+        find "x" in .num as .pos
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 8. replace: non-text source text ───────────────────────────────────────
+    show "--- 8. replace non-text source ---"
+    attempt
+        replace "x" with "y" in .num as .result
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 9. join: non-text list ──────────────────────────────────────────────────
+    show "--- 9. join non-text list ---"
+    attempt
+        join list numbers by ", " as .joined
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 10. split: target list not declared ────────────────────────────────────
+    show "--- 10. split undeclared target list ---"
+    set .csv to "a,b,c"
+    attempt
+        split .csv by "," as list undeclaredlist
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 11. exit loop outside loop ──────────────────────────────────────────────
+    show "--- 11. exit loop outside loop ---"
+    attempt
+        exit loop
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 12. next item outside loop ──────────────────────────────────────────────
+    show "--- 12. next item outside loop ---"
+    attempt
+        next item
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 13. format date with invalid code (non-fatal warning) ──────────────────
+    show "--- 13. invalid date format code (warning, not fatal) ---"
+    get date as .today
+    set .badformat to "WEEK DD MONTH YYYY"
+    format .today as .display using .badformat
+    show "display result: " + .display
+
+    // ── 14. fetch: non-text URL ─────────────────────────────────────────────────
+    show "--- 14. fetch non-text URL ---"
+    attempt
+        fetch .num as .response
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 15. format number: negative decimals ────────────────────────────────────
+    show "--- 15. format decimals negative ---"
+    set .price to 3.14
+    set .negdecimals to 0 - 2
+    attempt
+        format .price as .display decimals .negdecimals
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 16. format number: non-whole decimals ───────────────────────────────────
+    show "--- 16. format decimals non-whole ---"
+    set .fracdecimals to 1.5
+    attempt
+        format .price as .display decimals .fracdecimals
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 17. format number: padded zero ──────────────────────────────────────────
+    show "--- 17. format padded zero ---"
+    attempt
+        format .price as .display padded 0
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 18. format number: padded non-whole ─────────────────────────────────────
+    show "--- 18. format padded non-whole ---"
+    set .fracpad to 2.5
+    attempt
+        format .price as .display padded .fracpad
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    // ── 19. attempt all: dependent failure message ──────────────────────────────
+    show "--- 19. attempt all dependent failure ---"
+    set .depinput to "not a number"
+    attempt all
+        convert .depinput to number as .depvalue
+        set .doubled to .depvalue * 2
+    if fail
+        show "caught: " + fail reason
+    end fail
+    end attempt
+
+    show "all error conditions exercised"
+end script
+
+start at .main.script
+stop
