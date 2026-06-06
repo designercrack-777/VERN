@@ -26,8 +26,8 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 |---|---|
-| `VERN_Invariant_Grammar_v0_5.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_5.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, error recovery, date and time, string operations, file operations, and core operations. |
+| `VERN_Invariant_Grammar_v0_6.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_6.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, error recovery, date and time, string operations, file operations, core operations, type checking, number formatting, multi-line text, and networking. |
 
 ---
 
@@ -83,6 +83,16 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Key Features
 
+**Nested data structures** — dictionaries of dictionaries and lists of dictionaries. Built from flat file-level declarations linked by reference. Access is two steps: retrieve the inner structure, then operate on it. Consistent with the language's flat, explicit design philosophy.
+
+**Type checking** — `type of .value as .result` returns the data type of any value as a text string. Works on value references and implicit loop keywords. Useful for values whose type may not be known at write time.
+
+**Number formatting** — `format .number as .result decimals 2 thousands` prepares numbers for display with controlled decimal places, thousands separators, and padding. Extends the existing `format` instruction.
+
+**Multi-line text** — `text .valuename` / `end text` blocks declare file-level values holding structured text across multiple lines. Content is treated as raw text — reserved words are not parsed inside blocks.
+
+**Networking** — `fetch .url as .result` sends HTTP GET requests. `send .data to .url` sends HTTP POST requests. Both return raw text and are fully recoverable inside `attempt` blocks.
+
 **Dictionaries** — key-value data structures with full iteration, membership checks, and cross-file access. Keys are always text. Values are homogeneous by type. `current key` and `current value` follow the same pattern as `current item` in list iteration.
 
 **Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration. Both are resolved as two-word compounds, consistent with existing compound token patterns.
@@ -115,15 +125,15 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.5 — Specification complete, interpreter not yet implemented.**
+**Current version: v0.6 — Specification complete. Interpreter build beginning.**
 
-The specification is implementation-ready. An interpreter has not yet been built. Contributions toward a reference implementation are noted as a future priority.
+The specification is implementation-ready. v0.6 is the final specification version before interpreter development begins. The recommended build order is documented in `VERN_Next_Steps_v0_6.md`.
 
 ---
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_5.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_6.md`.
 
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
