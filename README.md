@@ -26,11 +26,8 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 |---|---|
-| `VERN_Invariant_Grammar_v0_6.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_6.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, error recovery, date and time, string operations, file operations, core operations, type checking, number formatting, multi-line text, and networking. |
-| `VERN_Next_Steps_v0_6.md` | Current project status and orientation document. |
-| `VERN_Next_Steps_Post_v0_6.md` | Forward paths for the post-interpreter phase — documentation, distribution, licensing, standard library, and ecosystem. |
-| `VERN_interpreter/` | Complete Python interpreter implementing every feature in the v0.6 spec. |
+| `VERN_Invariant_Grammar_v0_7.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_7.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, and none type. |
 
 ---
 
@@ -86,7 +83,21 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Key Features
 
-**Nested data structures** — dictionaries of dictionaries and lists of dictionaries. Built from flat file-level declarations linked by reference. Access is two steps: retrieve the inner structure, then operate on it.
+**Nested data structures** — dictionaries of dictionaries and lists of dictionaries, up to four levels deep. Built from flat file-level declarations linked by reference. Consistent with the language's flat, explicit design philosophy.
+
+**None type** — `none` is a first-class value representing the explicit absence of data. Assignable, returnable, and checkable. Distinct from zero, false, or empty string.
+
+**First-class functions** — `invoke script .scriptname` passes a script reference as a value and executes it from a receiving script. Enables reusable, parameterized behavior patterns without hardcoding script names.
+
+**Multiple return values** — scripts may return more than one value using comma-separated `return` syntax. Callers assign results inline using `as`.
+
+**Dynamic file references** — `path .valuename` constructs a file reference from a runtime value rather than a hardcoded literal. Allows file names to be determined while the program runs.
+
+**Typed exception handling** — `attempt` blocks may specify failure types using `fail type`. `if fail type` branches handle specific error categories distinctly from the general `if fail` catch.
+
+**Expanded networking** — `fetch` and `send` support custom headers, status code retrieval, and HTTP PUT and DELETE in addition to GET and POST.
+
+**Parse and inspect** — `parse .value as json` (or csv, xml, ini) converts structured text into a navigable VERN data structure. `inspect .value` reports structural information about a value at runtime.
 
 **Type checking** — `type of .value as .result` returns the data type of any value as a text string. Works on value references and implicit loop keywords.
 
@@ -94,31 +105,31 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 **Multi-line text** — `text .valuename` / `end text` blocks declare file-level values holding structured text across multiple lines. Content is treated as raw text — reserved words are not parsed inside blocks.
 
-**Networking** — `fetch .url as .result` sends HTTP GET requests. `send .data to .url` sends HTTP POST requests. Both return raw text and are fully recoverable inside `attempt` blocks.
+**Dictionaries** — key-value data structures with full iteration, membership checks, and cross-file access. Keys are always text. `current key` and `current value` follow the same pattern as `current item` in list iteration.
 
-**Dictionaries** — key-value data structures with full iteration, membership checks, and cross-file access. Keys are always text. Values are homogeneous by type. `current key` and `current value` follow the same pattern as `current item` in list iteration.
+**Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration. Both are resolved as two-word compounds, consistent with existing compound token patterns.
 
-**Loop control** — `exit loop` exits the current loop immediately. `next item` skips to the next iteration.
-
-**Script parameters** — scripts may declare named input parameters using `takes`. Values are passed positionally using `with` on the `run` call.
+**Script parameters** — scripts may declare named input parameters using `takes`. Values are passed positionally using `with` on the `run` call. Parameters are local to the script and not typed at declaration.
 
 **Extended string operations** — `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts with`, `ends with`. All non-destructive.
 
 **Extended list operations** — `sort`, `reverse`, `slice`, `combine`. All non-destructive. Results always assigned to a new named list.
 
-**Extended math** — trigonometric operations, logarithms, mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations. All non-destructive.
+**Extended math** — trigonometric operations (`sine`, `cosine`, `tangent` and inverses, hyperbolic forms), logarithms (natural, base 10, arbitrary base), mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations (`sum`, `factorial`, `combinations`, `permutations`, `sign`). All non-destructive, all strictly numeric.
 
-**Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing.
+**Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing. What you see is what runs.
 
-**Period-chain referencing** — values, scripts, files, and folders referenced by containment chain reading specific to general.
+**Period-chain referencing** — values, scripts, files, and folders are referenced by containment chain reading specific to general: `.valuename.scriptname.script.filename.vern`. Directory navigation uses `.folder` and `.parent` descriptors. The minimum necessary chain is always used.
 
-**Container system** — named data pools tagged with `#` allow context-switching without separate scripts. Built for localization.
+**Container system** — named data pools tagged with `#` allow context-switching without separate scripts. The same value resolves differently depending on which container is active. Built for localization.
 
-**Explicit type conversion** — no implicit coercion. `convert .value to number as .newvalue` is the only way to change types.
+**Explicit type conversion** — no implicit coercion. `convert .value to number as .newvalue` is the only way to change types. The original is never modified.
 
-**File operations** — read, write, append, delete, and check existence of files. List directory contents.
+**While loops and branching** — `while` loops run as long as a condition holds. `otherwise` provides a clean true/false branch inside `if` blocks. Both are fully nestable.
 
-**Extensible vocabulary** — users define new words mapped to script calls: `define "greet" as run .greet.script`.
+**File operations** — read, write, append, delete, and check existence of files. List directory contents. All file references use the standard period chain extended with `.folder` and `.parent` descriptors.
+
+**Extensible vocabulary** — users define new words mapped to script calls: `define "greet" as run .greet.script`. Domain experts build their own vocabulary on top of the grammar.
 
 **Universal localizability** — every keyword is a replaceable slot in the invariant grammar. To create a new language binding, map each token to the target language's imperative equivalent. Programs in any binding execute identically.
 
@@ -126,17 +137,15 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.6 — Specification complete. Interpreter complete. Packaged and installed.**
+**Current version: v0.7 — Specification complete. Interpreter complete. Packaged and installed.**
 
-VERN is a working programming language. The v0.6 interpreter implements every feature in the specification. A standalone Windows executable (`vern.exe`) is built and installed. Six example programs run correctly. All 267 automated tests pass.
-
-The next phase covers documentation, distribution, licensing, standard library, and ecosystem development. See `VERN_Next_Steps_Post_v0_6.md` for the full forward paths document.
+The interpreter implements every v0.7 feature and is distributed as a standalone Windows executable. No Python or dependencies required.
 
 ---
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_6.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7.md`.
 
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
