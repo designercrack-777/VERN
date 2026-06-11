@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document covers every instruction in VERN v0.6 in plain language — what each instruction does, what it looks like, and a working example. It is organized by category. You do not need to read it start to finish. Find the section for what you are trying to do and read that.
+This document covers every instruction in VERN in plain language — what each instruction does, what it looks like, and a working example. It is organized by category. You do not need to read it start to finish. Find the section for what you are trying to do and read that.
 
 If you are new to VERN and have not read the concept overview, start there first. This document assumes you understand what a value, a script, and a reference are.
 
@@ -1085,6 +1085,528 @@ Only two symbols carry meaning in VERN:
 - `#` — container tag. Containers only.
 
 No other special characters are required to write VERN programs. Operators (`+`, `-`, `*`, `/`, `=`, etc.) are used in expressions but are not reserved syntax characters.
+
+---
+
+*The VERN Project — 2026*
+
+---
+
+## The None Value
+
+Sometimes a value intentionally holds nothing. VERN has a special value for this — `none`. It is not an error. It is not an empty string. It is a deliberate declaration that a value has no data yet.
+
+```
+set .result to none
+```
+
+You can check for it the same way you check anything else:
+
+```
+if .result = none then show "nothing found"
+if .result != none then show .result
+```
+
+If you need to use a `none` value as a number or text, assign it a real value first:
+
+```
+if .result = none then set .result to 0
+set .total to .result + 10
+```
+
+Using a `none` value directly in an operation without checking first is a fatal error.
+
+---
+
+## Dynamic File References
+
+Normally when you read or write a file, you write the file name directly in the instruction. Dynamic file references let you build the file name from a value at runtime — useful when the file name depends on something the program figures out while running, like today's date or something the user typed.
+
+Use `path` before the value that holds the file name:
+
+```
+set .filename to "mylog.vern"
+write .entry to path .filename
+```
+
+```
+read .data from path .filename
+```
+
+```
+if path .filename exist then run .process.script
+```
+
+```
+delete path .filename
+```
+
+The value must contain a complete, valid file reference string — including `.vern` and any folder information needed to locate the file.
+
+Building a filename from the current date:
+
+```
+get date as .today
+format .today as .datetext using "YYYY-MM-DD"
+set .filename to .datetext + ".vern.logs.folder"
+write .entry to path .filename
+```
+
+---
+
+## Typed Error Handling
+
+The `attempt` block already lets you catch errors. This extends it so you can respond differently to different kinds of errors.
+
+Inside any `if fail` block, `fail type` tells you what category of error occurred:
+
+- `"type"` — a type conversion or type conflict
+- `"file"` — a file not found or directory missing
+- `"network"` — a connection failure or timeout
+- `"value"` — an undefined value or invalid math
+
+```
+attempt
+    fetch .url as .response
+if fail
+    show fail type
+    show fail reason
+end fail
+end attempt
+```
+
+You can also set up typed handlers that run automatically for specific error types. The right handler runs without you having to check manually:
+
+```
+attempt
+    fetch .url as .response
+if fail "network"
+    show "connection failed, trying again"
+if fail "type"
+    show "wrong data type"
+if fail
+    show "unexpected error:", fail reason
+end fail
+end attempt
+```
+
+Typed handlers must appear before the bare `if fail` catch-all. The catch-all runs for any error that doesn't match a typed handler. If there's no catch-all and the error doesn't match any typed handler, the error is unhandled.
+
+---
+
+## Expanded Networking
+
+### Sending Data with Headers
+
+Some web services require you to identify yourself with a key or token. You do this by sending headers alongside your request. Declare your headers as a dictionary, then attach them to any request using `with headers dictionary`:
+
+```
+dictionary authheaders
+    "Authorization" : "Bearer myapikey"
+    "Content-Type" : "application/json"
+end dictionary
+
+fetch .url with headers dictionary authheaders as .response
+```
+
+Headers work with all four request types — `fetch`, `send`, `update`, and `delete`.
+
+### Checking Status Codes
+
+Every response from a web server includes a status code — a number that tells you whether the request worked. Use `status` to capture it:
+
+```
+fetch .url as .response status .code
+show .code
+```
+
+Common codes: `200` means success. `404` means not found. `500` means the server had a problem. A code other than 200 is not automatically an error — the program decides what to do with it.
+
+### Reading Response Headers
+
+If you need to see the headers the server sent back:
+
+```
+fetch .url as .response response headers .responseheaders status .code
+get dictionary .responseheaders key "Content-Type" as .contenttype
+show .contenttype
+```
+
+### Updating and Deleting
+
+`update` sends data to a URL to update something that already exists (HTTP PUT):
+
+```
+update .data to .url
+update .data to .url status .code
+```
+
+`delete` with a URL value removes a resource (HTTP DELETE). This is different from file deletion — a URL value has no `.vern` in it:
+
+```
+delete .url
+delete .url status .code
+```
+
+---
+
+## Parsing Structured Data
+
+When your program fetches data from the internet or reads a data file, it often comes back as structured text — JSON, CSV, XML, or INI format. `parse` converts that text into VERN dictionaries and lists you can actually work with.
+
+### parse
+
+```
+parse json .response as dictionary data
+parse csv .content as list rows
+parse xml .response as dictionary data
+parse ini .content as dictionary config
+```
+
+Everything comes in as text type — if you need a number, convert it explicitly after parsing.
+
+**JSON example:**
+
+```
+fetch .url as .response
+parse json .response as dictionary data
+get dictionary data key "name" as .username
+show .username
+```
+
+**CSV example:**
+
+```
+read .content from .datafile.vern
+parse csv .content as list rows
+repeat through list rows
+    set .row to current item
+    get dictionary .row key "name" as .name
+    show .name
+end repeat
+```
+
+**INI example:**
+
+```
+read .content from .config.vern
+parse ini .content as dictionary config
+get dictionary config key "database" as .dbsection
+get dictionary .dbsection key "host" as .host
+show .host
+```
+
+CSV always produces a list. XML and INI always produce a dictionary. JSON produces either — you declare which one you expect, and `inspect` helps you figure that out.
+
+### inspect
+
+`inspect` is a development tool. Use it when you're working with data you haven't seen before and you want to understand its structure before writing code that uses it. It prints the shape of the data to the terminal.
+
+```
+fetch .url as .response
+inspect json .response
+```
+
+Output:
+```
+dictionary — 3 keys
+  "city" — text
+  "temperature" — text
+  "condition" — text
+```
+
+Once you know the structure, write your `parse` call. Remove `inspect` before you ship your program.
+
+---
+
+## Script Return Values
+
+### Returning a Single Value
+
+Scripts can hand a result back to the program that called them. Use `return` inside the script and `as` on the calling line:
+
+```
+script .double takes .n
+    set .result to .n * 2
+    return .result
+end script
+
+run .double.script with 10 as .answer
+show .answer
+// displays 20
+```
+
+### Returning Multiple Values
+
+A script can hand back more than one result. List the destination names after `as`, separated by commas. The first `return` goes to the first name, second to second, and so on:
+
+```
+script .splitname takes .fullname
+    find " " in .fullname as .spacepos
+    set .firstend to .spacepos - 1
+    set .laststart to .spacepos + 1
+    length of .fullname as .namelen
+    extract from .fullname beginning 1 finishing .firstend as .firstname
+    extract from .fullname beginning .laststart finishing .namelen as .lastname
+    return .firstname
+    return .lastname
+end script
+
+run .splitname.script with "Gabriel Moreau" as .first, .last
+show .first
+// displays: Gabriel
+show .last
+// displays: Moreau
+```
+
+---
+
+## Passing Lists and Dictionaries to Scripts
+
+Scripts can accept lists and dictionaries as parameters, not just values. Use the type keyword in both the declaration and the call:
+
+```
+script .showlist takes list items
+    repeat through list items
+        show current item
+    end repeat
+end script
+
+run .showlist.script with list names
+```
+
+```
+script .showentry takes dictionary record, .key
+    get dictionary record key .key as .value
+    show .value
+end script
+
+run .showentry.script with dictionary scores, "alice"
+```
+
+List and dictionary parameter names have no period prefix — consistent with how lists and dictionaries are always referenced throughout the language.
+
+---
+
+## First-Class Functions
+
+A script can accept another script as a parameter and run it. This lets you write one general-purpose script that works with any operation you pass to it.
+
+Declare a script parameter with `script parametername` in `takes`. Pass a script reference with `script .scriptname.script` in `with`. Run it inside the receiving script with `invoke script parametername`.
+
+```
+script .double takes .n
+    set .result to .n * 2
+    return .result
+end script
+
+script .applytolist takes list numbers, script operation
+    repeat through list numbers
+        set .current to current item
+        invoke script operation with .current as .result
+        show .result
+    end repeat
+end script
+
+list numbers
+    4
+    8
+    12
+end list
+
+run .applytolist.script with list numbers, script .double.script
+// displays: 8, 16, 24
+```
+
+The scripts being passed in are always declared at the file level — nothing changes about how they're written. `invoke` just runs whatever script was passed in instead of a hardcoded name.
+
+---
+
+## Execution Modes
+
+By default a VERN program runs once and stops. Execution modes change that ending behavior — a program can loop immediately, pause and wait for input, and choose whether to carry its state forward or start fresh each time.
+
+The execution mode is declared at the very end of the file, after all scripts and the `start at` line.
+
+### Run Once and Stop
+
+```
+start at .main.script
+stop
+```
+
+The default. Runs once and exits. No change from the basic behavior you already know.
+
+### Cycle — Loop Immediately
+
+```
+start at .main.script
+cycle reset
+```
+
+```
+start at .main.script
+cycle keep
+```
+
+`cycle` completes the program and immediately runs it again without waiting for anything. Useful for programs that monitor, poll, or process a continuous stream of work.
+
+`cycle reset` reinitializes all file-level values at the start of each new cycle — each run starts fresh.
+`cycle keep` carries file-level values forward — each run picks up where the last one left off.
+
+### Wait — Pause for Input Between Cycles
+
+```
+start at .main.script
+wait reset
+```
+
+```
+start at .main.script
+wait keep
+```
+
+`wait` completes the program, pauses, and waits for new input before running again. `reset` and `keep` work the same way as with `cycle`.
+
+### Stop Conditions
+
+Any number of stop conditions can appear between `start at` and the execution mode declaration. They are checked after each cycle — the first one that is true exits the program.
+
+```
+start at .main.script
+if .done = true then stop
+if .errorstate = true then stop
+cycle keep
+```
+
+The flag gets set inside a script. The exit condition lives at the bottom of the file where it is easy to find.
+
+---
+
+## Concurrent Programs
+
+### Launching Another Program
+
+```
+launch .programname.vern
+```
+
+Starts another VERN program running at the same time as the current one. The current script continues immediately — it does not wait for the launched program to finish. The launched program runs according to its own execution mode.
+
+```
+script .main
+    launch .worker.vern
+    run .dowork.script
+    stop .worker.vern
+end script
+```
+
+The launched program must be in the same folder. Launching a program that is already running is a fatal error. A program cannot launch itself.
+
+### Stopping Another Program
+
+```
+stop .programname.vern
+```
+
+Sends a halt signal to another named running program. That program stops immediately regardless of its execution mode. Valid only inside a script — this is the only form of `stop` that is valid inside a script.
+
+If the named program is not currently running, this is a fatal error.
+
+### Timed Pauses
+
+```
+wait 2 seconds
+wait 500 milliseconds
+```
+
+Pauses the current script for the specified duration before continuing to the next instruction. The number must be a whole number greater than zero.
+
+```
+script .monitor
+    repeat through list tasks
+        run .process.script
+        wait 250 milliseconds
+    end repeat
+end script
+```
+
+---
+
+## Standard Library
+
+VERN ships with a small set of ready-made utility scripts in a `lib` folder. Import any of them to use them in your program.
+
+### validate.vern — Safe Input
+
+Asks the user for input and keeps asking until they give a valid number:
+
+```
+import .validate.vern.lib.folder
+
+run .validate.script with "enter your age:", "number" as .age
+show "your age is", .age
+```
+
+### strings.vern — Padding and Alignment
+
+Pads a value to a fixed width for clean column display. `"left"` puts text on the left, spaces on the right. `"right"` puts text on the right, spaces on the left:
+
+```
+import .strings.vern.lib.folder
+
+run .pad.script with .name, 15, "left" as .paddedname
+run .pad.script with .score, 6, "right" as .paddedscore
+show .paddedname, .paddedscore
+```
+
+### datemath.vern — Date Calculations
+
+```
+import .datemath.vern.lib.folder
+
+// days between a date and today
+run .daysfrom.script with .deadline as .remaining
+show "days remaining:", .remaining
+
+// is a date in the past?
+run .ispast.script with .deadline as .overdue
+if .overdue = true then show "deadline has passed"
+
+// days between two dates
+run .daysbetween.script with .start, .finish as .total
+show "total days:", .total
+```
+
+### listsearch.vern — List Search
+
+```
+import .listsearch.vern.lib.folder
+
+// find position of a value — returns 0 if not found
+run .finditem.script with list names, "bob" as .position
+
+// check if a value exists in a list
+run .hasitem.script with list names, "diana" as .found
+if .found = true then show "diana is in the list"
+```
+
+### dictsearch.vern — Deep Dictionary Search
+
+Searches through nested dictionaries up to four levels deep without having to chain every `get` manually. `.haskey` performs an independent key search and returns true or false regardless of the value type stored in the dictionary. `.searchdict` retrieves the value for a given key, returning an empty string if the key is not found.
+
+```
+import .dictsearch.vern.lib.folder
+
+// check if a key exists anywhere in the structure
+run .haskey.script with dictionary students, "algebra" as .found
+
+// retrieve a value by key from any depth
+if .found = true
+    run .searchdict.script with dictionary students, "algebra" as .score
+    show .score
+end if
+```
 
 ---
 
