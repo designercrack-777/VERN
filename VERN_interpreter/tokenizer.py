@@ -164,6 +164,10 @@ SINGLE_KEYWORDS: dict = {w: w.upper() for w in [
     "headers", "status", "response",
     "parse", "inspect",
     "json", "csv", "xml", "ini",
+    # Phase 3 additions (v0.7.5)
+    "wait", "cycle", "reset", "keep",
+    "serve", "route", "respond", "request", "launch",
+    "seconds", "milliseconds",
     # Implicit components of compound comparison operators — reserved but
     # only valid inside their compounds; listed here so they tokenize
     # as keywords rather than identifiers.

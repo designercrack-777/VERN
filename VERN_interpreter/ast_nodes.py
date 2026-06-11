@@ -5,6 +5,19 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional, Union
 
 
+# ── File extension sets ────────────────────────────────────────────────────────
+
+TEXT_EXTENSIONS = frozenset({
+    'txt', 'json', 'csv', 'xml', 'ini', 'html', 'md', 'log',
+    'yaml', 'yml', 'toml', 'sql',
+})
+BINARY_EXTENSIONS = frozenset({
+    'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico', 'pdf',
+    'mp3', 'wav', 'mp4', 'mov', 'webm', 'zip',
+})
+ALL_RECOGNIZED_EXTENSIONS = TEXT_EXTENSIONS | BINARY_EXTENSIONS | {'vern'}
+
+
 # ── Expressions ────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -734,6 +747,63 @@ class ScriptDef:
 class ContainerDef:
     tag: str          # "#english" — full token value
     body: List[Any]   # SetInstr nodes
+    line: int = 0
+
+
+# ── Execution mode (v0.7.5) ───────────────────────────────────────────────────
+
+@dataclass
+class ExecutionModeDecl:
+    """wait reset / wait keep / cycle reset / cycle keep at file level."""
+    mode: str   # 'wait_reset', 'wait_keep', 'cycle_reset', 'cycle_keep'
+    line: int = 0
+
+@dataclass
+class StopProgramInstr:
+    """stop .programname.vern — halt another running program (Feature 3)."""
+    target: 'ValueRef'
+    line: int = 0
+
+@dataclass
+class LaunchInstr:
+    """launch .programname.vern — start a program as a concurrent thread."""
+    target: 'ValueRef'
+    line: int = 0
+
+@dataclass
+class WaitInstr:
+    """wait N seconds | wait N milliseconds — pause execution."""
+    duration: int           # positive whole number
+    unit: str               # 'seconds' or 'milliseconds'
+    line: int = 0
+
+@dataclass
+class ServeDecl:
+    """serve <port> — start HTTP server on given port."""
+    port: int
+    line: int = 0
+
+@dataclass
+class RouteDecl:
+    """route "/path" to .script — map URL path to a script."""
+    path: str        # URL path string, e.g. "/calculate"
+    script: 'ValueRef'
+    line: int = 0
+
+@dataclass
+class RespondInstr:
+    """respond ... [status N] — send HTTP response from a routed script."""
+    value: Any = None           # expression for the response value
+    is_file: bool = False       # True when 'respond file ...'
+    file_ref: Any = None        # ValueRef (literal) or expression (path keyword)
+    file_is_path: bool = False  # True when 'respond file path .ref'
+    status: Optional[int] = None   # HTTP status code, None = default 200
+    line: int = 0
+
+@dataclass
+class RequestRef:
+    """request body / path / headers / method — read-only inside a routed script."""
+    attribute: str   # 'body', 'path', 'headers', 'method'
     line: int = 0
 
 

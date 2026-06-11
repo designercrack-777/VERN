@@ -169,6 +169,30 @@ class Parser:
             self._advance()
             return NoneLit(line=line)
 
+        if t.type == "REQUEST":
+            self._advance()
+            attr_t = self._peek()
+            if attr_t is None or attr_t.line != line:
+                raise ParseError(
+                    "'request' must be followed by 'body', 'path', 'headers', or 'method'",
+                    line)
+            if attr_t.type == "PATH":
+                self._advance()
+                return RequestRef(attribute='path', line=line)
+            elif attr_t.type == "HEADERS":
+                self._advance()
+                return RequestRef(attribute='headers', line=line)
+            elif attr_t.type == "IDENTIFIER" and attr_t.value.lower() == "body":
+                self._advance()
+                return RequestRef(attribute='body', line=line)
+            elif attr_t.type == "IDENTIFIER" and attr_t.value.lower() == "method":
+                self._advance()
+                return RequestRef(attribute='method', line=line)
+            else:
+                raise ParseError(
+                    f"'request' must be followed by 'body', 'path', 'headers', or 'method', "
+                    f"got {attr_t.value!r}", line)
+
         raise ParseError(f"expected a value, got {t.type} ({t.value!r})", line)
 
     def _parse_expr(self, line_no: Optional[int] = None) -> Any:
@@ -400,7 +424,7 @@ class Parser:
             "EXIT_LOOP":          lambda: ExitLoopInstr(line=self._advance().line),
             "NEXT_ITEM":          lambda: NextItemInstr(line=self._advance().line),
             "IMPORT":             self._parse_import,
-            "STOP":               lambda: StopInstr(line=self._advance().line),
+            "STOP":               self._parse_stop,
             "START_AT":           self._parse_start_at,
             "DEFINE":             self._parse_define,
             "PUT":                self._parse_put,
@@ -458,6 +482,12 @@ class Parser:
             "PARSE":              self._parse_parse,
             "INSPECT":            self._parse_inspect,
             "INVOKE":             self._parse_invoke,
+            "WAIT":               self._parse_wait,
+            "CYCLE":              self._parse_execution_mode,
+            "SERVE":              self._parse_serve,
+            "ROUTE":              self._parse_route,
+            "RESPOND":            self._parse_respond,
+            "LAUNCH":             self._parse_launch,
         }
 
         handler = dispatch.get(tt)
@@ -973,6 +1003,102 @@ class Parser:
         self._expect("START_AT")
         script = self._parse_value_ref()
         return StartAt(script=script, line=line)
+
+    def _parse_stop(self) -> Any:
+        """stop  |  stop .programname.vern"""
+        line = self._advance().line   # consume STOP
+        t = self._peek()
+        # stop .programname.vern — inter-program stop signal
+        if t and t.type == "REFERENCE" and t.line == line:
+            ref_parts = [p for p in t.value.split('.') if p]
+            if any(p in ALL_RECOGNIZED_EXTENSIONS for p in ref_parts):
+                ref = self._parse_value_ref()
+                return StopProgramInstr(target=ref, line=line)
+        return StopInstr(line=line)
+
+    def _parse_wait(self) -> Any:
+        """wait N seconds | wait N milliseconds  — or — wait reset | wait keep (execution mode)."""
+        line = self._peek().line
+        t_next = self._peek(1)   # token after 'wait'
+        if t_next and t_next.line == line and t_next.type == "NUMBER_LITERAL":
+            self._advance()   # consume WAIT
+            num_t = self._advance()   # consume number
+            if '.' in num_t.value:
+                raise ParseError("wait: duration must be a whole number", line)
+            duration = int(num_t.value)
+            if duration <= 0:
+                raise ParseError("wait: duration must be greater than zero", line)
+            unit_t = self._peek()
+            if unit_t is None or unit_t.line != line or unit_t.type not in ("SECONDS", "MILLISECONDS"):
+                raise ParseError(
+                    "wait: duration must be followed by 'seconds' or 'milliseconds'", line)
+            unit = self._advance().value   # 'seconds' or 'milliseconds'
+            return WaitInstr(duration=duration, unit=unit, line=line)
+        # Fall through to execution mode (wait reset / wait keep)
+        return self._parse_execution_mode()
+
+    def _parse_execution_mode(self) -> ExecutionModeDecl:
+        """wait reset | wait keep | cycle reset | cycle keep"""
+        line = self._peek().line
+        first = self._advance().value   # 'wait' or 'cycle'
+        t = self._peek()
+        if t is None or t.line != line or t.type not in ("RESET", "KEEP"):
+            raise ParseError(
+                f"'{first}' must be followed by 'reset' or 'keep' on the same line",
+                line)
+        second = self._advance().value   # 'reset' or 'keep'
+        return ExecutionModeDecl(mode=f"{first}_{second}", line=line)
+
+    def _parse_serve(self) -> ServeDecl:
+        """serve <port>"""
+        line = self._advance().line   # consume SERVE
+        port_t = self._expect("NUMBER_LITERAL")
+        if '.' in port_t.value:
+            raise ParseError("serve: port must be a whole number", line)
+        return ServeDecl(port=int(port_t.value), line=line)
+
+    def _parse_route(self) -> RouteDecl:
+        """route "/path" to .script"""
+        line = self._advance().line   # consume ROUTE
+        path_t = self._expect("TEXT_LITERAL")
+        self._expect("TO")
+        script = self._parse_value_ref()
+        return RouteDecl(path=path_t.value, script=script, line=line)
+
+    def _parse_respond(self) -> RespondInstr:
+        """respond [file [path] .ref | .value | "text"] [status N]"""
+        line = self._advance().line   # consume RESPOND
+        # respond file ...
+        t = self._peek()
+        if t and t.type == "IDENTIFIER" and t.value.lower() == "file" and t.line == line:
+            self._advance()   # consume 'file'
+            file_is_path = False
+            if self._same_line(line) and self._check("PATH"):
+                self._advance()
+                file_is_path = True
+            file_ref = self._parse_value_ref()
+            status = self._parse_respond_status(line)
+            return RespondInstr(is_file=True, file_ref=file_ref,
+                                file_is_path=file_is_path, status=status, line=line)
+        # respond .value [status N]
+        value = self._parse_expr(line)
+        status = self._parse_respond_status(line)
+        return RespondInstr(value=value, status=status, line=line)
+
+    def _parse_respond_status(self, base_line: int) -> Optional[int]:
+        if self._same_line(base_line) and self._check("STATUS"):
+            self._advance()
+            t = self._expect("NUMBER_LITERAL")
+            if '.' in t.value:
+                raise ParseError("respond: status code must be a whole number", base_line)
+            return int(t.value)
+        return None
+
+    def _parse_launch(self) -> LaunchInstr:
+        """launch .programname.vern"""
+        line = self._advance().line   # consume LAUNCH
+        ref = self._parse_value_ref()
+        return LaunchInstr(target=ref, line=line)
 
     def _parse_define(self) -> DefineInstr:
         line = self._peek().line
@@ -1511,8 +1637,9 @@ class Parser:
             path_ref = self._parse_value_ref()
             return DeleteInstr(path=path_ref, path_is_path=True, line=line)
         path = self._parse_value_ref()
-        # If the ref contains .vern, it's a static file deletion
-        if ".vern" in path.ref:
+        # If the ref contains a recognized file extension, it's a static file deletion
+        ref_parts = [p for p in path.ref.split('.') if p]
+        if any(p in ALL_RECOGNIZED_EXTENSIONS for p in ref_parts):
             return DeleteInstr(path=path, line=line)
         # Otherwise it's HTTP DELETE (url in .valuename)
         headers_dict = None

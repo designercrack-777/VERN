@@ -1,16 +1,31 @@
 #!/usr/bin/env python3
 """VERN executor — walks the AST and runs the program."""
 
+import copy
+import json
 import math
 import os
 import sys
+import time
 import random as _random
+import threading
 from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 from ast_nodes import *
 from parser import parse_file
 from error_logger import VernLogger
+
+
+# ── Request context (thread-local for web serving) ────────────────────────────
+_request_context = threading.local()
+
+
+# ── Inter-program stop signal registry ────────────────────────────────────────
+# Maps absolute program path → threading.Event.  A program sets its own event
+# to signal itself to halt; another program sets it remotely via StopProgramInstr.
+_registry_lock: threading.Lock = threading.Lock()
+_program_registry: Dict[str, threading.Event] = {}
 
 
 # ── Signals ────────────────────────────────────────────────────────────────────
@@ -82,6 +97,24 @@ class VernExecutor:
         self._return_collector: Optional[list] = None
         self._is_multi_return: bool = False
 
+        # Register this program in the inter-program stop registry.
+        # If a launch instruction pre-registered an event, reuse it so the
+        # caller can send a stop signal before this thread has fully started.
+        with _registry_lock:
+            existing = _program_registry.get(self.program_path)
+            if existing is not None:
+                self._stop_event = existing
+            else:
+                self._stop_event = threading.Event()
+                _program_registry[self.program_path] = self._stop_event
+
+        try:
+            self._run_program_inner(program)
+        finally:
+            with _registry_lock:
+                _program_registry.pop(self.program_path, None)
+
+    def _run_program_inner(self, program: Program):
         # Phase 1: register scripts and containers (so they're available anywhere)
         for node in program.body:
             if isinstance(node, ScriptDef):
@@ -96,11 +129,106 @@ class VernExecutor:
                         name = self._ref_name(instr.target)
                         self.containers[tag][name] = val
 
-        # Phase 2: execute top-to-bottom
-        try:
-            self._exec_body(program.body, self.file_scope, None, None, top_level=True)
-        except StopSignal:
-            pass
+        # Phase 2: find execution mode and serve declaration
+        exec_mode = 'stop'
+        serve_node = None
+        routes: Dict[str, Any] = {}  # URL path → ValueRef
+        for node in program.body:
+            if isinstance(node, ExecutionModeDecl) and exec_mode == 'stop':
+                exec_mode = node.mode
+            elif isinstance(node, ServeDecl) and serve_node is None:
+                serve_node = node
+            elif isinstance(node, RouteDecl):
+                routes[node.path] = node.script
+
+        # Validate: serve requires an execution mode
+        if serve_node and exec_mode == 'stop':
+            raise FatalError(
+                "serve: a serving program must declare an execution mode "
+                "(wait keep, wait reset, cycle keep, or cycle reset)", serve_node.line)
+
+        if exec_mode == 'stop':
+            # Single-run (original behavior)
+            try:
+                self._exec_body(program.body, self.file_scope, None, None, top_level=True)
+            except StopSignal:
+                pass
+            # Single-run programs also check for a stop signal before exiting
+            # (handles the case where a signal arrived during execution)
+            return
+
+        # Phase 3: multi-cycle / web serving mode
+        # Split body into init nodes (before StartAt) and cycle nodes (StartAt onwards)
+        start_at_idx = next(
+            (i for i, n in enumerate(program.body) if isinstance(n, StartAt)),
+            len(program.body)
+        )
+        # For serve mode: exclude ServeDecl and RouteDecl from execution nodes too
+        _skip = (ScriptDef, ContainerDef, ExecutionModeDecl, ServeDecl, RouteDecl)
+        init_nodes = [n for n in program.body[:start_at_idx]
+                      if not isinstance(n, _skip)]
+        cycle_nodes = [n for n in program.body[start_at_idx:]
+                       if not isinstance(n, _skip)]
+
+        # Run init nodes once
+        for node in init_nodes:
+            self._exec_node(node, self.file_scope, None, None)
+
+        if serve_node:
+            # Validate all routes point to declared scripts
+            for rpath, script_ref in routes.items():
+                try:
+                    self._find_script(script_ref)
+                except FatalError as e:
+                    raise FatalError(
+                        f"route '{rpath}': script '{script_ref.ref}' is not declared "
+                        f"in this program", serve_node.line)
+            # Run the init script
+            try:
+                for node in cycle_nodes:
+                    self._exec_node(node, self.file_scope, None, None)
+            except StopSignal:
+                pass
+            # Start HTTP server (blocks until keyboard interrupt)
+            self._serve_http(serve_node.port, routes, exec_mode)
+            return
+
+        # Snapshot initial state for reset modes
+        is_reset = 'reset' in exec_mode
+        if is_reset:
+            init_scope_snap = dict(self.file_scope)
+            init_lists_snap = copy.deepcopy(self.lists)
+            init_dicts_snap = copy.deepcopy(self.dicts)
+
+        # Main execution loop
+        while True:
+            # Check for an incoming stop signal before starting each cycle
+            if self._stop_event.is_set():
+                break
+
+            stopped = False
+            try:
+                for node in cycle_nodes:
+                    self._exec_node(node, self.file_scope, None, None)
+            except StopSignal:
+                stopped = True
+
+            if stopped:
+                break
+
+            # Check stop signal again after the cycle (catches signal that arrived
+            # while the last cycle was executing)
+            if self._stop_event.is_set():
+                break
+
+            # Apply reset before next cycle
+            if is_reset:
+                self.file_scope.clear()
+                self.file_scope.update(dict(init_scope_snap))
+                self.lists.clear()
+                self.lists.update(copy.deepcopy(init_lists_snap))
+                self.dicts.clear()
+                self.dicts.update(copy.deepcopy(init_dicts_snap))
 
     # ── Body / node execution ──────────────────────────────────────────────────
 
@@ -144,34 +272,57 @@ class VernExecutor:
                     raise FatalError(
                         f"read: path must be a text value, got {self._type_name(path)}",
                         node.line)
+                ext = os.path.splitext(path)[1].lstrip('.').lower()
+                if ext not in ALL_RECOGNIZED_EXTENSIONS:
+                    raise FatalError(
+                        f"read: '{os.path.basename(path)}' has unrecognized extension "
+                        f"'.{ext}'. Use a supported file extension.", node.line)
             else:
                 path = self._resolve_file_ref(node.source)
             filename = os.path.basename(path)
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    # Strip platform line endings; skip trailing blank created by
-                    # a file that ends with a newline (standard VERN write format).
-                    raw = [ln.rstrip('\r\n') for ln in f.readlines()]
-                    lines = [ln for ln in raw if ln != ''] if raw and raw[-1] == '' \
-                            else raw
-                    # More robustly: keep ALL lines including empties except a
-                    # trailing empty line left by the final newline.
-                    lines = raw
-                    if lines and lines[-1] == '':
-                        lines = lines[:-1]
-            except FileNotFoundError:
+            ext = os.path.splitext(path)[1].lstrip('.').lower()
+            if ext in BINARY_EXTENSIONS:
                 raise FatalError(
-                    f"Cannot read '{filename}' — the file does not exist.", node.line)
-            except PermissionError:
-                raise FatalError(
-                    f"Cannot read '{filename}' — permission denied.", node.line)
-            if len(lines) < len(node.targets):
-                raise FatalError(
-                    f"Cannot read '{filename}' — the file has {len(lines)} "
-                    f"line(s) but {len(node.targets)} value(s) were requested.",
+                    f"Cannot read '{filename}' — '{ext}' files cannot be read as values. "
+                    f"Binary files support only 'delete' and 'exist' operations.",
                     node.line)
-            for i, target in enumerate(node.targets):
-                self._set_var(target, lines[i], scope)
+            if ext in TEXT_EXTENSIONS:
+                if len(node.targets) > 1:
+                    raise FatalError(
+                        f"Cannot read '{filename}' into multiple values — "
+                        f"non-VERN files return the entire file contents as a single value.",
+                        node.line)
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                except FileNotFoundError:
+                    raise FatalError(
+                        f"Cannot read '{filename}' — the file does not exist.", node.line)
+                except PermissionError:
+                    raise FatalError(
+                        f"Cannot read '{filename}' — permission denied.", node.line)
+                self._set_var(node.targets[0], content, scope)
+            else:
+                # .vern — line-mapped reading
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        raw = [ln.rstrip('\r\n') for ln in f.readlines()]
+                        lines = raw
+                        if lines and lines[-1] == '':
+                            lines = lines[:-1]
+                except FileNotFoundError:
+                    raise FatalError(
+                        f"Cannot read '{filename}' — the file does not exist.", node.line)
+                except PermissionError:
+                    raise FatalError(
+                        f"Cannot read '{filename}' — permission denied.", node.line)
+                if len(lines) < len(node.targets):
+                    raise FatalError(
+                        f"Cannot read '{filename}' — the file has {len(lines)} "
+                        f"line(s) but {len(node.targets)} value(s) were requested.",
+                        node.line)
+                for i, target in enumerate(node.targets):
+                    self._set_var(target, lines[i], scope)
 
         elif t is WriteInstr:
             if node.dest_is_path:
@@ -180,9 +331,20 @@ class VernExecutor:
                     raise FatalError(
                         f"write: path must be a text value, got {self._type_name(path)}",
                         node.line)
+                ext = os.path.splitext(path)[1].lstrip('.').lower()
+                if ext not in ALL_RECOGNIZED_EXTENSIONS:
+                    raise FatalError(
+                        f"write: '{os.path.basename(path)}' has unrecognized extension "
+                        f"'.{ext}'. Use a supported file extension.", node.line)
             else:
                 path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
+            ext = os.path.splitext(path)[1].lstrip('.').lower()
+            if ext in BINARY_EXTENSIONS:
+                raise FatalError(
+                    f"Cannot write '{filename}' — '{ext}' files cannot be written. "
+                    f"Binary files support only 'delete' and 'exist' operations.",
+                    node.line)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
                 raise FatalError(
@@ -206,9 +368,20 @@ class VernExecutor:
                     raise FatalError(
                         f"append: path must be a text value, got {self._type_name(path)}",
                         node.line)
+                ext = os.path.splitext(path)[1].lstrip('.').lower()
+                if ext not in ALL_RECOGNIZED_EXTENSIONS:
+                    raise FatalError(
+                        f"append: '{os.path.basename(path)}' has unrecognized extension "
+                        f"'.{ext}'. Use a supported file extension.", node.line)
             else:
                 path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
+            ext = os.path.splitext(path)[1].lstrip('.').lower()
+            if ext in BINARY_EXTENSIONS:
+                raise FatalError(
+                    f"Cannot append to '{filename}' — '{ext}' files cannot be written. "
+                    f"Binary files support only 'delete' and 'exist' operations.",
+                    node.line)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
                 raise FatalError(
@@ -230,6 +403,11 @@ class VernExecutor:
                     raise FatalError(
                         f"delete: path must be a text value, got {self._type_name(path)}",
                         node.line)
+                ext = os.path.splitext(path)[1].lstrip('.').lower()
+                if ext not in ALL_RECOGNIZED_EXTENSIONS:
+                    raise FatalError(
+                        f"delete: '{os.path.basename(path)}' has unrecognized extension "
+                        f"'.{ext}'. Use a supported file extension.", node.line)
             else:
                 path = self._resolve_file_ref(node.path)
             filename = os.path.basename(path)
@@ -260,6 +438,99 @@ class VernExecutor:
 
         elif t is StopInstr:
             raise StopSignal()
+
+        elif t is ExecutionModeDecl:
+            pass   # handled in run_program; no-op when encountered during cycle_nodes
+
+        elif t is StopProgramInstr:
+            target_path = self._resolve_file_ref(node.target)
+            with _registry_lock:
+                event = _program_registry.get(target_path)
+            if event is None:
+                target_name = os.path.basename(target_path)
+                raise FatalError(
+                    f"stop: '{target_name}' is not currently running", node.line)
+            event.set()   # fire-and-forget — caller continues normally
+
+        elif t is LaunchInstr:
+            if scope is self.file_scope:
+                raise FatalError(
+                    "launch: can only be used inside a script", node.line)
+            target_path = self._resolve_file_ref(node.target)
+            if not os.path.exists(target_path):
+                target_name = os.path.basename(target_path)
+                raise FatalError(
+                    f"launch: file not found: '{target_name}'", node.line)
+            if os.path.abspath(target_path) == os.path.abspath(self.program_path):
+                raise FatalError(
+                    "launch: a program cannot launch itself", node.line)
+            # Pre-register under the lock so the launched program is immediately
+            # addressable by stop before the new thread has started executing.
+            pre_event = threading.Event()
+            with _registry_lock:
+                if target_path in _program_registry:
+                    target_name = os.path.basename(target_path)
+                    raise FatalError(
+                        f"launch: '{target_name}' is already running", node.line)
+                _program_registry[target_path] = pre_event
+            def _run_launched(path=target_path):
+                from parser import parse_file as _parse_file
+                child_logger = VernLogger(path)
+                child_exe = VernExecutor(path, logger=child_logger)
+                try:
+                    child_exe.run_program(_parse_file(path))
+                except SystemExit:
+                    pass
+            t_child = threading.Thread(target=_run_launched, daemon=True)
+            t_child.start()
+
+        elif t is WaitInstr:
+            if scope is self.file_scope:
+                raise FatalError(
+                    "wait: can only be used inside a script", node.line)
+            secs = node.duration / 1000.0 if node.unit == 'milliseconds' else float(node.duration)
+            time.sleep(secs)
+
+        elif t is ServeDecl:
+            pass   # handled in run_program
+
+        elif t is RouteDecl:
+            pass   # handled in run_program
+
+        elif t is RespondInstr:
+            if not getattr(_request_context, 'active', False):
+                raise FatalError(
+                    "respond: can only be used inside a routed script", node.line)
+            if getattr(_request_context, 'responded', False):
+                raise FatalError(
+                    "respond: cannot respond more than once per request", node.line)
+            _request_context.responded = True
+            if node.is_file:
+                if node.file_is_path:
+                    fp = self._eval_expr(node.file_ref, scope, loop_ctx, container_tag)
+                    if not isinstance(fp, str):
+                        raise FatalError(
+                            "respond file path: path must be a text value", node.line)
+                    fext = os.path.splitext(fp)[1].lstrip('.').lower()
+                    if fext not in ALL_RECOGNIZED_EXTENSIONS:
+                        raise FatalError(
+                            f"respond file path: unrecognized extension '.{fext}'",
+                            node.line)
+                    _request_context.file_path = fp
+                else:
+                    fp = self._resolve_file_ref(node.file_ref)
+                    fext = os.path.splitext(fp)[1].lstrip('.').lower()
+                    if fext not in ALL_RECOGNIZED_EXTENSIONS:
+                        raise FatalError(
+                            f"respond file: unrecognized extension '.{fext}'", node.line)
+                    _request_context.file_path = fp
+                _request_context.is_file = True
+                _request_context.response = None
+            else:
+                val = self._eval_expr(node.value, scope, loop_ctx, container_tag)
+                _request_context.response = val
+                _request_context.is_file = False
+            _request_context.status = node.status if node.status is not None else 200
 
         elif t is StartAt:
             script_node = self._find_script(node.script)
@@ -1461,6 +1732,22 @@ class VernExecutor:
                 raise FatalError("fail type: used outside if fail block", expr.line)
             return ft
 
+        elif t is RequestRef:
+            if not getattr(_request_context, 'active', False):
+                raise FatalError(
+                    f"request {expr.attribute}: can only be used inside a routed script",
+                    expr.line)
+            attr = expr.attribute
+            if attr == 'body':
+                return _request_context.body
+            elif attr == 'path':
+                return _request_context.path
+            elif attr == 'headers':
+                return OrderedDict(_request_context.headers)
+            elif attr == 'method':
+                return _request_context.method
+            raise FatalError(f"request: unknown attribute '{attr}'", expr.line)
+
         elif t is ValueRef:
             return self._resolve_ref(expr, scope, loop_ctx, container_tag)
 
@@ -1522,6 +1809,11 @@ class VernExecutor:
                 raise FatalError(
                     f"path exist: path must be a text value, got {self._type_name(path_str)}",
                     cond.line)
+            ext = os.path.splitext(path_str)[1].lstrip('.').lower()
+            if ext not in ALL_RECOGNIZED_EXTENSIONS:
+                raise FatalError(
+                    f"path exist: '{os.path.basename(path_str)}' has unrecognized extension "
+                    f"'.{ext}'. Use a supported file extension.", cond.line)
             return os.path.exists(path_str)
 
         elif t is StartsWithCond:
@@ -1621,15 +1913,13 @@ class VernExecutor:
 
     def _set_var(self, vref: ValueRef, value, scope):
         name = self._ref_name(vref)
-        # If already in current script scope, update there
+        # Script parameters live in local scope; all other values go to file scope.
+        # This ensures that values set inside scripts are visible at file level,
+        # which is required for execution-mode stop conditions to work correctly.
         if name in scope and scope is not self.file_scope:
-            scope[name] = value
-        # If in file scope, update there
-        elif name in self.file_scope:
-            self.file_scope[name] = value
-        # Otherwise create in current scope
+            scope[name] = value   # update script parameter in local scope
         else:
-            scope[name] = value
+            self.file_scope[name] = value   # everything else is file-scoped
 
     @staticmethod
     def _ref_name(vref: ValueRef) -> str:
@@ -2042,8 +2332,8 @@ class VernExecutor:
                         "Invalid file reference: '.parent' may appear only once "
                         "in a path chain.", line)
                 i += 1
-            elif i + 1 < len(parts) and parts[i + 1] == 'vern':
-                file_name = parts[i] + '.vern'
+            elif i + 1 < len(parts) and parts[i + 1] in ALL_RECOGNIZED_EXTENSIONS:
+                file_name = parts[i] + '.' + parts[i + 1]
                 i += 2
             elif i + 1 < len(parts) and parts[i + 1] == 'folder':
                 folders.append(parts[i])
@@ -2062,10 +2352,10 @@ class VernExecutor:
         ref = vref.ref
         line = vref.line
 
-        # Fast path: simple same-directory reference  .name.vern
+        # Fast path: simple same-directory reference  .name.ext
         parts = [p for p in ref.split('.') if p]
-        if len(parts) == 2 and parts[1] == 'vern':
-            return os.path.join(self.program_dir, parts[0] + '.vern')
+        if len(parts) == 2 and parts[1] in ALL_RECOGNIZED_EXTENSIONS:
+            return os.path.join(self.program_dir, parts[0] + '.' + parts[1])
 
         file_name, folders, use_parent = self._parse_ref_chain(ref, line)
         if use_parent:
@@ -2091,6 +2381,11 @@ class VernExecutor:
 
     def _handle_import(self, node: ImportInstr):
         path = self._resolve_file_ref(node.path)
+        ext = os.path.splitext(path)[1].lstrip('.').lower()
+        if ext != 'vern':
+            raise FatalError(
+                f"import: '{os.path.basename(path)}' is not a VERN file. "
+                f"Only .vern files can be imported.", node.line)
         if path in self._loading_files:
             raise FatalError(f"circular import: {path}", node.line)
         # Fallback: if not found relative to the program, and the path contains
@@ -2116,6 +2411,124 @@ class VernExecutor:
         program = parse_file(path)
         imp.run_program(program)
         self.imported.append(imp)
+
+    # ── Web server ─────────────────────────────────────────────────────────────
+
+    def _serve_http(self, port: int, routes: dict, exec_mode: str):
+        """Start a synchronous HTTP server on the given port."""
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        executor = self
+
+        class VernHandler(BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                pass   # suppress access log noise
+
+            def _handle(self, method: str):
+                url_path = self.path.split('?')[0]
+                script_ref = routes.get(url_path)
+                if script_ref is None:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+
+                # Read request body
+                content_length = int(self.headers.get('Content-Length', 0))
+                body = (self.rfile.read(content_length).decode('utf-8', errors='replace')
+                        if content_length else '')
+
+                # Set up request context
+                ctx = _request_context
+                ctx.active = True
+                ctx.body = body
+                ctx.path = url_path
+                ctx.headers = dict(self.headers)
+                ctx.method = method
+                ctx.responded = False
+                ctx.response = None
+                ctx.is_file = False
+                ctx.file_path = None
+                ctx.status = 200
+
+                try:
+                    script_node = executor._find_script(script_ref)
+                    executor._exec_script(script_node, [], None, None)
+                except StopSignal:
+                    pass
+                except FatalError as e:
+                    executor._log(f"route '{url_path}' handler error: {e.msg}", e.line)
+                    ctx.active = False
+                    self.send_response(500)
+                    self.end_headers()
+                    return
+                finally:
+                    ctx.active = False
+
+                status = getattr(ctx, 'status', 200) or 200
+
+                if ctx.is_file:
+                    fp = ctx.file_path
+                    if fp is None or not os.path.exists(fp):
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    file_ext = os.path.splitext(fp)[1].lstrip('.').lower()
+                    try:
+                        if file_ext in BINARY_EXTENSIONS:
+                            with open(fp, 'rb') as f:
+                                data = f.read()
+                        else:
+                            with open(fp, 'r', encoding='utf-8') as f:
+                                data = f.read().encode('utf-8')
+                        self.send_response(status)
+                        self.send_header('Content-Length', str(len(data)))
+                        self.end_headers()
+                        self.wfile.write(data)
+                    except Exception as ex:
+                        self.send_response(500)
+                        self.end_headers()
+                elif ctx.response is not None:
+                    val = ctx.response
+                    if isinstance(val, (dict, OrderedDict)):
+                        raw = json.dumps(dict(val), default=str)
+                        content = raw.encode('utf-8')
+                        self.send_response(status)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Content-Length', str(len(content)))
+                        self.end_headers()
+                        self.wfile.write(content)
+                    elif isinstance(val, list):
+                        raw = json.dumps(val, default=str)
+                        content = raw.encode('utf-8')
+                        self.send_response(status)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Content-Length', str(len(content)))
+                        self.end_headers()
+                        self.wfile.write(content)
+                    else:
+                        content = executor._to_display(val).encode('utf-8')
+                        self.send_response(status)
+                        self.send_header('Content-Length', str(len(content)))
+                        self.end_headers()
+                        self.wfile.write(content)
+                else:
+                    # No respond — 200 with no body
+                    self.send_response(status)
+                    self.end_headers()
+
+            def do_GET(self):    self._handle('GET')
+            def do_POST(self):   self._handle('POST')
+            def do_PUT(self):    self._handle('PUT')
+            def do_DELETE(self): self._handle('DELETE')
+
+        server = HTTPServer(('', port), VernHandler)
+        print(f"VERN serving on port {port}")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
 
     # ── Logging ────────────────────────────────────────────────────────────────
 
