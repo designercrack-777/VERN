@@ -26,8 +26,8 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 |---|---|
-| `VERN_Invariant_Grammar_v0_7.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_7.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, and none type. |
+| `VERN_Invariant_Grammar_v0_7_5.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_7_5.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
 
 ---
 
@@ -83,6 +83,14 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Key Features
 
+**Execution modes** — four program lifecycle behaviors beyond run-once: `wait reset`, `wait keep`, `cycle reset`, `cycle keep`. Programs can loop immediately, pause for input between cycles, and carry or reset state across cycles. Stop conditions at the bottom of the file provide clean, auditable exit logic.
+
+**Concurrent program launching** — `launch .programname.vern` starts another VERN program as a concurrent process within the same runtime. The launching script continues immediately. Launched programs are addressable by name and can be halted with `stop .programname.vern`.
+
+**Inter-program stop signal** — `stop .programname.vern` inside a script halts another named running program immediately, regardless of its execution mode. Both programs share a runtime registry so they can find each other.
+
+**Timed pauses** — `wait 2 seconds` or `wait 500 milliseconds` pauses execution for a fixed duration before continuing. Useful for pacing concurrent programs, polling loops, and any behavior that depends on timing.
+
 **Nested data structures** — dictionaries of dictionaries and lists of dictionaries, up to four levels deep. Built from flat file-level declarations linked by reference. Consistent with the language's flat, explicit design philosophy.
 
 **None type** — `none` is a first-class value representing the explicit absence of data. Assignable, returnable, and checkable. Distinct from zero, false, or empty string.
@@ -137,15 +145,15 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.7 — Specification complete. Interpreter complete. Packaged and installed.**
+**Current version: v0.7.5 — Specification complete. Interpreter complete. Packaged and installed.**
 
-The interpreter implements every v0.7 feature and is distributed as a standalone Windows executable. No Python or dependencies required.
+The interpreter implements every v0.7.5 feature and is distributed as a standalone Windows executable. No Python or dependencies required.
 
 ---
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_5.md`.
 
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
