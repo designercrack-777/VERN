@@ -1,5 +1,7 @@
 # VERN
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20646051.svg)](https://doi.org/10.5281/zenodo.20646051)
+
 **A universal imperative programming grammar with replaceable vocabulary bindings.**
 
 VERN is a controlled natural language programming language designed to make programming accessible to anyone who can read and write in their own language. It uses a strict, command-style pidgin grammar that eliminates the translation layer between human intent and executable code.
