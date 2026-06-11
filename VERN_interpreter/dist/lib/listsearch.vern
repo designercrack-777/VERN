@@ -1,0 +1,22 @@
+// listsearch.vern
+// VERN Standard Library — List Search
+// The VERN Project — 2026
+
+script .finditem takes list searchlist, .searchvalue
+    set .position to 0
+    set .counter to 0
+    repeat through list searchlist
+        set .counter to .counter + 1
+        if current item = .searchvalue
+            set .position to .counter
+            exit loop
+        end if
+    end repeat
+    return .position
+end script
+
+script .hasitem takes list searchlist, .searchvalue
+    set .result to false
+    if .searchvalue is in list searchlist then set .result to true
+    return .result
+end script

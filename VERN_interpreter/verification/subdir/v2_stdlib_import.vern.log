@@ -1,0 +1,13 @@
+════════════════════════════════════════════════════════
+  VERN Error Log
+  Program : v2_stdlib_import.vern
+  Run     : 2026-06-09 at 13:07:55
+════════════════════════════════════════════════════════
+
+Line   17  │  FATAL  undefined value: .validate
+                └ Execution halted.
+
+────────────────────────────────────────────────────────
+  Errors  : 1 halting error
+  Program : Halted due to fatal error
+────────────────────────────────────────────────────────

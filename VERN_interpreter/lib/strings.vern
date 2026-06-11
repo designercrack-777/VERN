@@ -1,0 +1,21 @@
+// strings.vern
+// VERN Standard Library — String Alignment and Padding
+// The VERN Project — 2026
+
+script .pad takes .value, .width, .side
+    convert .value to text as .textvalue
+    length of .textvalue as .currentwidth
+    if .currentwidth = .width then return .textvalue
+    if .currentwidth is greater than .width
+        extract from .textvalue beginning 1 finishing .width as .trimmed
+        return .trimmed
+    end if
+    set .difference to .width - .currentwidth
+    set .spaces to ""
+    repeat .difference times
+        set .spaces to .spaces + " "
+    end repeat
+    if .side = "left" then set .padded to .textvalue + .spaces
+    if .side = "right" then set .padded to .spaces + .textvalue
+    return .padded
+end script

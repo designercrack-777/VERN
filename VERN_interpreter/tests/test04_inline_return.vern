@@ -1,0 +1,110 @@
+// TEST 04 — Inline Return Assignment (Form 2)
+// Tests: run script with as, bare return, single return stops execution
+
+show "--- 1. basic inline return ---"
+script .double takes .x
+  set .r to .x * 2
+  return .r
+end script
+
+run .double.script with 5 as .result
+show .result
+// expected: 10
+if .result = 10
+  show "PASS: inline return assigned correctly"
+otherwise
+  show "FAIL: expected 10"
+end if
+
+show "--- 2. single return stops execution ---"
+script .earlyexit takes .x
+  if .x is greater than 0
+    return .x
+  end if
+  set .x to 0 - 1
+  return .x
+end script
+
+run .earlyexit.script with 7 as .r
+show .r
+// expected: 7 (early exit taken, second return not reached)
+if .r = 7
+  show "PASS: execution stopped after first return"
+otherwise
+  show "FAIL: expected 7"
+end if
+
+show "--- 3. return a text value ---"
+script .greet takes .name
+  set .msg to "hello, " + .name
+  return .msg
+end script
+
+run .greet.script with "world" as .greeting
+show .greeting
+// expected: hello, world
+if .greeting = "hello, world"
+  show "PASS: text return works"
+otherwise
+  show "FAIL: text return mismatch"
+end if
+
+show "--- 4. return from conditional branch ---"
+script .classify takes .n
+  if .n is greater than 0
+    set .label to "positive"
+    return .label
+  end if
+  if .n is less than 0
+    set .label to "negative"
+    return .label
+  end if
+  set .label to "zero"
+  return .label
+end script
+
+set .negthree to 0 - 3
+run .classify.script with 5 as .r1
+run .classify.script with .negthree as .r2
+run .classify.script with 0 as .r3
+show .r1
+// expected: positive
+show .r2
+// expected: negative
+show .r3
+// expected: zero
+if .r1 = "positive"
+  show "PASS: classify positive"
+otherwise
+  show "FAIL: classify positive"
+end if
+if .r2 = "negative"
+  show "PASS: classify negative"
+otherwise
+  show "FAIL: classify negative"
+end if
+if .r3 = "zero"
+  show "PASS: classify zero"
+otherwise
+  show "FAIL: classify zero"
+end if
+
+show "--- 5. return a number from computation ---"
+script .hypotenuse takes .a, .b
+  set .asq to .a * .a
+  set .bsq to .b * .b
+  set .csq to .asq + .bsq
+  set .c to .csq power 0.5
+  return .c
+end script
+
+run .hypotenuse.script with 3, 4 as .hyp
+show .hyp
+// expected: 5
+if .hyp = 5
+  show "PASS: hypotenuse computed correctly"
+otherwise
+  show "FAIL: expected 5"
+end if
+
+show "--- DONE ---"

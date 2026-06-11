@@ -1,0 +1,57 @@
+// VERIFICATION 1 — Real API fetch + parse json
+// Fetches https://httpbin.org/json, parses the JSON response,
+// and displays values from the known structure.
+//
+// httpbin.org/json returns:
+//   {"slideshow":{"author":"Yours Truly","date":"date of publication",
+//    "slides":[...],"title":"Sample Slide Show"}}
+
+show "Fetching https://httpbin.org/json ..."
+
+attempt
+  fetch "https://httpbin.org/json" as .body status .code
+  show "HTTP status:"
+  show .code
+
+  show "Parsing JSON ..."
+  parse json .body as dictionary result
+
+  // The top-level dict has one key: "slideshow"
+  // Its value is a nested dict — retrieved into .slideshow
+  get dictionary result key "slideshow" as .slideshow
+  type of .slideshow as .st
+  show "type of slideshow value:"
+  show .st
+
+  // .slideshow is now a dict in scope — use dot-ref form to get sub-keys
+  get dictionary .slideshow key "author" as .author
+  get dictionary .slideshow key "title" as .title
+
+  show "author:"
+  show .author
+  show "title:"
+  show .title
+
+  if .author = "Yours Truly"
+    show "PASS: author field matches expected value"
+  otherwise
+    show "INFO: author was:"
+    show .author
+  end if
+
+  if .title = "Sample Slide Show"
+    show "PASS: title field matches expected value"
+  otherwise
+    show "INFO: title was:"
+    show .title
+  end if
+
+if fail "network"
+  show "FAIL: network error — no internet access?"
+if fail
+  show "FAIL: unexpected error"
+  show fail reason
+end fail
+end attempt
+
+show "--- DONE ---"

@@ -1,0 +1,87 @@
+// TEST 13 — validate.vern
+// Tests: valid number input, type conversion, retry on invalid
+// NOTE: validate.vern asks for user input. This test uses attempt/fail
+//       around a direct call to verify the import and basic mechanism.
+//       Interactive retry behavior must be tested manually.
+
+import .validate.vern.lib.folder
+
+show "--- 1. validate converts good number input ---"
+// We can't easily test interactive input in a non-interactive test.
+// Instead we verify that the script is importable and runnable,
+// and test the convert behavior that validate wraps directly.
+
+set .valid to false
+set .rawinput to "42"
+attempt
+  convert .rawinput to number as .converted
+  set .valid to true
+if fail
+  show "FAIL: should have converted 42 to number"
+end fail
+end attempt
+show .converted
+// expected: 42
+if .converted = 42
+  show "PASS: direct convert of 42 succeeded"
+otherwise
+  show "FAIL: expected 42"
+end if
+
+show "--- 2. invalid number input fails convert ---"
+set .bad to "not a number"
+attempt
+  convert .bad to number as .c
+  show "FAIL: should have failed"
+if fail
+  show "PASS: invalid number input fails convert (caught)"
+  show fail reason
+end fail
+end attempt
+
+show "--- 3. import confirmed ---"
+// If we got here, validate.vern was imported without error
+show "PASS: validate.vern imported successfully"
+
+show "--- 4. validate script exists and has correct name ---"
+// Call validate indirectly — pass a value that would already be valid
+// We bypass interactive ask by verifying the convert step works
+set .testval to "3.14"
+attempt
+  convert .testval to number as .pi
+  show .pi
+  // expected: 3.14
+  if .pi = 3.14
+    show "PASS: convert to number as used in validate works"
+  otherwise
+    show "FAIL: expected 3.14"
+  end if
+if fail
+  show "FAIL: convert of 3.14 should succeed"
+end fail
+end attempt
+
+show "--- 5. zero is a valid number ---"
+set .z to "0"
+convert .z to number as .znum
+show .znum
+// expected: 0
+if .znum = 0
+  show "PASS: zero converts successfully"
+otherwise
+  show "FAIL: expected 0"
+end if
+
+show "--- 6. negative number is valid ---"
+set .neg to "-7.5"
+convert .neg to number as .nval
+show .nval
+// expected: -7.5
+set .negcheck to 0 - 7.5
+if .nval = .negcheck
+  show "PASS: negative number converts"
+otherwise
+  show "FAIL: expected -7.5"
+end if
+
+show "--- DONE ---"

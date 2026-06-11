@@ -1,0 +1,40 @@
+// VERIFICATION 3 — Non-200 status code capture
+// Fetches https://httpbin.org/status/404 which intentionally returns HTTP 404.
+// Confirms: program does not crash, status code is correctly captured as 404.
+
+show "Fetching https://httpbin.org/status/404 (intentional 404) ..."
+
+attempt
+  fetch "https://httpbin.org/status/404" as .body status .code
+  show "Returned from fetch — execution continued past non-200 response."
+  show "Status code captured:"
+  show .code
+  type of .code as .codetype
+  show "Type of status code:"
+  show .codetype
+
+  if .code = 404
+    show "PASS: status 404 captured correctly, no crash"
+  otherwise
+    show "INFO: status was not 404, got:"
+    show .code
+  end if
+
+  if .codetype = "number"
+    show "PASS: status code is a number type"
+  otherwise
+    show "FAIL: expected status code to be number type"
+  end if
+
+if fail "network"
+  show "FAIL: network error — no internet access?"
+if fail
+  show "FAIL: unexpected fatal error"
+  show fail reason
+end fail
+end attempt
+
+// Confirm program continues normally after the block
+show "Execution continued past attempt block — no crash."
+
+show "--- DONE ---"

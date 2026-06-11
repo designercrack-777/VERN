@@ -1,0 +1,86 @@
+// TEST 02 — Four-Level Nested Data Structures
+// Tests: declare 4 levels, access at depth, iterate at depth
+
+show "--- 1. four-level dict construction ---"
+// Level 4 (deepest)
+dictionary level4
+  "secret": "deep value"
+end dictionary
+
+// Level 3 contains level 4
+dictionary level3
+  "data": level4
+end dictionary
+
+// Level 2 contains level 3
+dictionary level2
+  "nested": level3
+end dictionary
+
+// Level 1 contains level 2
+dictionary level1
+  "top": level2
+end dictionary
+
+show "PASS: four-level dictionary declared"
+
+show "--- 2. type of nested dict values ---"
+get dictionary level1 key "top" as .l2val
+type of .l2val as .l2type
+show .l2type
+// expected: dictionary
+
+get dictionary .l2val key "nested" as .l3val
+type of .l3val as .l3type
+show .l3type
+// expected: dictionary
+
+get dictionary .l3val key "data" as .l4val
+type of .l4val as .l4type
+show .l4type
+// expected: dictionary
+
+get dictionary .l4val key "secret" as .deepval
+show .deepval
+// expected: deep value
+if .deepval = "deep value"
+  show "PASS: value at depth 4 retrieved correctly"
+otherwise
+  show "FAIL: depth 4 value mismatch"
+end if
+
+show "--- 3. iterate level 1 ---"
+repeat through dictionary level1
+  show current key
+  type of current value as .vtype
+  show .vtype
+end repeat
+// expected: top / dictionary
+
+show "--- 4. iterate level 2 via variable ---"
+repeat through dictionary .l2val
+  show current key
+end repeat
+// expected: nested
+
+show "--- 5. iterate level 4 via variable ---"
+repeat through dictionary .l4val
+  show current key
+  show current value
+end repeat
+// expected: secret / deep value
+
+show "--- 6. modify at depth 4 (text dict) ---"
+// .l4val is level4 which has text values ("secret": "deep value")
+// Safe to add another text value
+put "another" in dictionary .l4val key "bonus"
+get dictionary .l4val key "bonus" as .added
+show .added
+// expected: another
+if .added = "another"
+  show "PASS: modification at depth 4 works"
+otherwise
+  show "FAIL: modification at depth 4 failed"
+end if
+
+show "--- DONE ---"

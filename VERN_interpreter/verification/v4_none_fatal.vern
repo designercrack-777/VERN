@@ -1,0 +1,14 @@
+// VERIFICATION 4 — None type fatal error (outside attempt block)
+// Sets .myval to none, then tries to add it to a number.
+// Execution must halt with a fatal error.
+// The error log must be written and must identify the bad operation.
+
+show "Setting .myval to none ..."
+set .myval to none
+
+show "About to add none to 10 — this should be fatal ..."
+set .result to .myval + 10
+
+// These lines must NOT be reached:
+show "THIS LINE SHOULD NOT APPEAR"
+show .result

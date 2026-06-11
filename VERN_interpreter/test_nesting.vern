@@ -1,0 +1,12 @@
+// Test 4-level nesting (none type in list)
+list mixed
+  "hello"
+  none
+  "world"
+end list
+
+show "list test"
+repeat through list mixed
+  show current item
+end repeat
+

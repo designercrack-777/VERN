@@ -51,6 +51,7 @@ class VernExecutor:
         self.lists: Dict[str, list] = {}
         self.dicts: Dict[str, OrderedDict] = {}
         self.scripts: Dict[str, ScriptDef] = {}
+        self.script_scopes: Dict[str, Dict[str, Any]] = {}  # persisted after execution
         self.containers: Dict[str, Dict[str, Any]] = {}
         self.imported: List['VernExecutor'] = []
         self.logger: Optional[VernLogger] = logger
@@ -58,7 +59,29 @@ class VernExecutor:
 
     # ── Entry point ────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _check_nesting_depth(value, depth: int = 1, max_depth: int = 4, path: str = '') -> None:
+        """Recursively check that nested list/dict structures don't exceed max_depth."""
+        if depth > max_depth:
+            raise FatalError(
+                f"data structure exceeds maximum nesting depth of {max_depth}"
+                + (f" at {path}" if path else ""), 0)
+        if isinstance(value, dict):
+            for k, v in value.items():
+                if isinstance(v, (dict, list)):
+                    VernExecutor._check_nesting_depth(
+                        v, depth + 1, max_depth, f"{path}.{k}" if path else str(k))
+        elif isinstance(value, list):
+            for i, item in enumerate(value):
+                if isinstance(item, (dict, list)):
+                    VernExecutor._check_nesting_depth(
+                        item, depth + 1, max_depth, f"{path}[{i}]" if path else f"[{i}]")
+
     def run_program(self, program: Program):
+        # Initialize return collector state
+        self._return_collector: Optional[list] = None
+        self._is_multi_return: bool = False
+
         # Phase 1: register scripts and containers (so they're available anywhere)
         for node in program.body:
             if isinstance(node, ScriptDef):
@@ -115,7 +138,14 @@ class VernExecutor:
         # ── File I/O ──────────────────────────────────────────────────────────
 
         elif t is ReadInstr:
-            path = self._resolve_file_ref(node.source)
+            if node.source_is_path:
+                path = self._eval_expr(node.source, scope, loop_ctx, container_tag)
+                if not isinstance(path, str):
+                    raise FatalError(
+                        f"read: path must be a text value, got {self._type_name(path)}",
+                        node.line)
+            else:
+                path = self._resolve_file_ref(node.source)
             filename = os.path.basename(path)
             try:
                 with open(path, 'r', encoding='utf-8') as f:
@@ -144,7 +174,14 @@ class VernExecutor:
                 self._set_var(target, lines[i], scope)
 
         elif t is WriteInstr:
-            path = self._resolve_file_ref(node.dest)
+            if node.dest_is_path:
+                path = self._eval_expr(node.dest, scope, loop_ctx, container_tag)
+                if not isinstance(path, str):
+                    raise FatalError(
+                        f"write: path must be a text value, got {self._type_name(path)}",
+                        node.line)
+            else:
+                path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
@@ -163,7 +200,14 @@ class VernExecutor:
                     f"Cannot write '{filename}' — permission denied.", node.line)
 
         elif t is AppendInstr:
-            path = self._resolve_file_ref(node.dest)
+            if node.dest_is_path:
+                path = self._eval_expr(node.dest, scope, loop_ctx, container_tag)
+                if not isinstance(path, str):
+                    raise FatalError(
+                        f"append: path must be a text value, got {self._type_name(path)}",
+                        node.line)
+            else:
+                path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
@@ -180,7 +224,14 @@ class VernExecutor:
                     f"Cannot append to '{filename}' — permission denied.", node.line)
 
         elif t is DeleteInstr:
-            path = self._resolve_file_ref(node.path)
+            if node.path_is_path:
+                path = self._eval_expr(node.path, scope, loop_ctx, container_tag)
+                if not isinstance(path, str):
+                    raise FatalError(
+                        f"delete: path must be a text value, got {self._type_name(path)}",
+                        node.line)
+            else:
+                path = self._resolve_file_ref(node.path)
             filename = os.path.basename(path)
             if not os.path.exists(path):
                 raise FatalError(
@@ -216,12 +267,49 @@ class VernExecutor:
 
         elif t is RunInstr:
             script_node = self._find_script(node.script)
-            args = [self._eval_expr(a, scope, loop_ctx, container_tag) for a in node.args]
-            self._exec_script(script_node, args, node.container, container_tag)
+            args = []
+            for a in node.args:
+                if isinstance(a, tuple):
+                    args.append(a)   # ("list", name), ("dict", name), ("script", ref)
+                else:
+                    args.append(self._eval_expr(a, scope, loop_ctx, container_tag))
+            self._exec_script(script_node, args, node.container, container_tag,
+                              result_names=node.result_names if node.result_names else None)
+
+        elif t is InvokeInstr:
+            # invoke script parametername [with args] [as .result]
+            script_def = scope.get(node.param_name)
+            if script_def is None:
+                raise FatalError(
+                    f"invoke: script parameter '{node.param_name}' not found in scope",
+                    node.line)
+            if not isinstance(script_def, ScriptDef):
+                raise FatalError(
+                    f"invoke: '{node.param_name}' is not a script", node.line)
+            args = []
+            for a in node.args:
+                if isinstance(a, tuple):
+                    args.append(a)
+                else:
+                    args.append(self._eval_expr(a, scope, loop_ctx, container_tag))
+            self._exec_script(script_def, args, None, container_tag,
+                              result_names=node.result_names if node.result_names else None)
 
         elif t is ReturnInstr:
             val = self._eval_expr(node.value, scope, loop_ctx, container_tag)
-            raise ReturnSignal(val, node.dest)
+            if node.dest is not None:
+                # Form 1: return .value pass to .dest
+                raise ReturnSignal(val, node.dest)
+            else:
+                # Form 2: bare return .value
+                collector = getattr(self, '_return_collector', None)
+                if collector is None:
+                    raise FatalError(
+                        "bare 'return' used outside a Form 2 script", node.line)
+                collector.append(val)
+                if not getattr(self, '_is_multi_return', False):
+                    # Single-return: stop execution via signal
+                    raise ReturnSignal(val, None)
 
         elif t is ImportInstr:
             self._handle_import(node)
@@ -263,7 +351,15 @@ class VernExecutor:
                     continue
 
         elif t is RepeatThroughListBlock:
-            lst = self._get_list(node.list_name, node.file_ref)
+            # list_name can be a str (declared list) or ValueRef (variable holding a list)
+            if isinstance(node.list_name, ValueRef):
+                lst = self._eval_expr(node.list_name, scope, loop_ctx, container_tag)
+                if not isinstance(lst, list):
+                    raise FatalError(
+                        f"repeat through list: '{self._ref_name(node.list_name)}' "
+                        f"is not a list", node.line)
+            else:
+                lst = self._get_list(node.list_name, node.file_ref)
             iteration = 0
             for item in list(lst):
                 iteration += 1
@@ -276,7 +372,15 @@ class VernExecutor:
                     continue
 
         elif t is RepeatThroughDictBlock:
-            d = self._get_dict(node.dict_name, node.file_ref)
+            # dict_name can be a str (declared dict) or ValueRef (variable holding a dict)
+            if isinstance(node.dict_name, ValueRef):
+                d = self._eval_expr(node.dict_name, scope, loop_ctx, container_tag)
+                if not isinstance(d, dict):
+                    raise FatalError(
+                        f"repeat through dictionary: '{self._ref_name(node.dict_name)}' "
+                        f"is not a dictionary", node.line)
+            else:
+                d = self._get_dict(node.dict_name, node.file_ref)
             iteration = 0
             for k, v in list(d.items()):
                 iteration += 1
@@ -795,9 +899,36 @@ class VernExecutor:
                     f"fetch: URL must be a text value, got {self._type_name(url)}.", node.line)
             try:
                 import urllib.request
-                with urllib.request.urlopen(url) as resp:
-                    content = resp.read().decode('utf-8', errors='replace')
-                self._set_var(node.result, content, scope)
+                import urllib.error
+                req = urllib.request.Request(url)
+                # Request headers
+                if node.headers_dict:
+                    hd = self._get_dict(node.headers_dict, None)
+                    for k, v in hd.items():
+                        req.add_header(str(k), str(v))
+                content = ''
+                status_code = 0
+                resp_headers = {}
+                try:
+                    with urllib.request.urlopen(req) as resp:
+                        content = resp.read().decode('utf-8', errors='replace')
+                        status_code = resp.status
+                        resp_headers = dict(resp.headers)
+                except urllib.error.HTTPError as he:
+                    # Non-200 status — not fatal; capture status if requested
+                    content = he.read().decode('utf-8', errors='replace') if he.fp else ''
+                    status_code = he.code
+                    resp_headers = dict(he.headers) if he.headers else {}
+                if node.result:
+                    self._set_var(node.result, content, scope)
+                if node.response_headers:
+                    rh = OrderedDict((k, str(v)) for k, v in resp_headers.items())
+                    rh_name = self._ref_name(node.response_headers)
+                    self.dicts[rh_name] = rh
+                    # Also store as a value so type of / set work on it
+                    self._set_var(node.response_headers, rh, scope)
+                if node.status:
+                    self._set_var(node.status, float(status_code), scope)
             except FatalError:
                 raise
             except Exception as e:
@@ -813,13 +944,84 @@ class VernExecutor:
                 raise FatalError(
                     f"send: URL must be a text value, got {self._type_name(url)}.", node.line)
             try:
-                import urllib.request
+                import urllib.request, urllib.error
                 req = urllib.request.Request(url, data=data.encode('utf-8'), method='POST')
-                urllib.request.urlopen(req)
+                if node.headers_dict:
+                    hd = self._get_dict(node.headers_dict, None)
+                    for k, v in hd.items():
+                        req.add_header(str(k), str(v))
+                status_code = 0
+                try:
+                    with urllib.request.urlopen(req) as resp:
+                        status_code = resp.status
+                except urllib.error.HTTPError as he:
+                    status_code = he.code
+                if node.status:
+                    self._set_var(node.status, float(status_code), scope)
             except FatalError:
                 raise
             except Exception as e:
                 raise FatalError(f"send failed: {e}", node.line)
+
+        elif t is UpdateInstr:
+            data = self._eval_expr(node.data, scope, loop_ctx, container_tag)
+            url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
+            if not isinstance(data, str):
+                raise FatalError(
+                    f"update: data must be a text value, got {self._type_name(data)}.", node.line)
+            if not isinstance(url, str):
+                raise FatalError(
+                    f"update: URL must be a text value, got {self._type_name(url)}.", node.line)
+            try:
+                import urllib.request, urllib.error
+                req = urllib.request.Request(url, data=data.encode('utf-8'), method='PUT')
+                if node.headers_dict:
+                    hd = self._get_dict(node.headers_dict, None)
+                    for k, v in hd.items():
+                        req.add_header(str(k), str(v))
+                status_code = 0
+                try:
+                    with urllib.request.urlopen(req) as resp:
+                        status_code = resp.status
+                except urllib.error.HTTPError as he:
+                    status_code = he.code
+                if node.status:
+                    self._set_var(node.status, float(status_code), scope)
+            except FatalError:
+                raise
+            except Exception as e:
+                raise FatalError(f"update failed: {e}", node.line)
+
+        elif t is DeleteUrlInstr:
+            url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
+            if not isinstance(url, str):
+                raise FatalError(
+                    f"delete: URL must be a text value, got {self._type_name(url)}.", node.line)
+            try:
+                import urllib.request, urllib.error
+                req = urllib.request.Request(url, method='DELETE')
+                if node.headers_dict:
+                    hd = self._get_dict(node.headers_dict, None)
+                    for k, v in hd.items():
+                        req.add_header(str(k), str(v))
+                status_code = 0
+                try:
+                    with urllib.request.urlopen(req) as resp:
+                        status_code = resp.status
+                except urllib.error.HTTPError as he:
+                    status_code = he.code
+                if node.status:
+                    self._set_var(node.status, float(status_code), scope)
+            except FatalError:
+                raise
+            except Exception as e:
+                raise FatalError(f"delete failed: {e}", node.line)
+
+        elif t is ParseInstr:
+            self._exec_parse(node, scope, loop_ctx, container_tag)
+
+        elif t is InspectInstr:
+            self._exec_inspect(node, scope, loop_ctx, container_tag)
 
         # ── Misc ──────────────────────────────────────────────────────────────
 
@@ -831,21 +1033,72 @@ class VernExecutor:
 
     # ── Script execution ───────────────────────────────────────────────────────
 
+    @staticmethod
+    def _count_top_level_returns(body) -> int:
+        """Count Form 2 (bare) return statements at the top level of a body."""
+        return sum(1 for n in body if isinstance(n, ReturnInstr) and n.dest is None)
+
     def _exec_script(self, script_node: ScriptDef, args: list,
-                     run_container: Optional[str], caller_container: Optional[str]):
+                     run_container: Optional[str], caller_container: Optional[str],
+                     result_names=None):
         scope: Dict[str, Any] = {}
 
-        # Bind parameters
-        if args and not script_node.params:
+        # Bind parameters (supports plain, list, dict, script typed params)
+        num_params = len(script_node.params)
+        num_args = len(args)
+        if num_args != num_params:
             raise FatalError(
-                f"script '{script_node.name.ref}' takes no parameters but "
-                f"{len(args)} value(s) were passed", script_node.line)
-        if script_node.params and len(args) != len(script_node.params):
-            raise FatalError(
-                f"script '{script_node.name.ref}' expects {len(script_node.params)} "
-                f"parameter(s), got {len(args)}", script_node.line)
-        for param, val in zip(script_node.params, args):
-            scope[self._ref_name(param)] = val
+                f"script '{script_node.name.ref}' expects {num_params} "
+                f"parameter(s), got {num_args}", script_node.line)
+
+        # Track temp list/dict bindings for cleanup
+        temp_list_saves: Dict[str, Any] = {}
+        temp_dict_saves: Dict[str, Any] = {}
+
+        for param, arg in zip(script_node.params, args):
+            if isinstance(param, tuple):
+                kind, param_name = param
+                if kind == 'list':
+                    if not (isinstance(arg, tuple) and arg[0] == 'list'):
+                        raise FatalError(
+                            f"script '{script_node.name.ref}': parameter '{param_name}' "
+                            f"expects a list argument", script_node.line)
+                    arg_list_name = arg[1]
+                    src = self._get_list(arg_list_name, None)
+                    temp_list_saves[param_name] = self.lists.get(param_name)
+                    self.lists[param_name] = src
+                elif kind == 'dict':
+                    if not (isinstance(arg, tuple) and arg[0] == 'dict'):
+                        raise FatalError(
+                            f"script '{script_node.name.ref}': parameter '{param_name}' "
+                            f"expects a dictionary argument", script_node.line)
+                    arg_dict_name = arg[1]
+                    src = self._get_dict(arg_dict_name, None)
+                    temp_dict_saves[param_name] = self.dicts.get(param_name)
+                    self.dicts[param_name] = src
+                elif kind == 'script':
+                    if not (isinstance(arg, tuple) and arg[0] == 'script'):
+                        raise FatalError(
+                            f"script '{script_node.name.ref}': parameter '{param_name}' "
+                            f"expects a script argument", script_node.line)
+                    script_ref = arg[1]   # ValueRef
+                    script_def = self._find_script(script_ref)
+                    scope[param_name] = script_def
+                else:
+                    raise FatalError(f"unknown param kind: {kind}", script_node.line)
+            else:
+                # Plain ValueRef param
+                scope[self._ref_name(param)] = arg
+
+        # Determine if this script uses Form 2 multi-return
+        num_returns = self._count_top_level_returns(script_node.body)
+        is_multi = num_returns > 1
+
+        # Save and set up return collector for Form 2
+        old_collector = getattr(self, '_return_collector', None)
+        old_is_multi = getattr(self, '_is_multi_return', False)
+        self._return_collector: Optional[list] = []
+        self._is_multi_return: bool = is_multi
 
         # Container priority: run-level > script-definition
         effective_container = (self._strip_tag(run_container) or
@@ -854,9 +1107,44 @@ class VernExecutor:
         try:
             self._exec_body(script_node.body, scope, None, effective_container)
         except ReturnSignal as rs:
-            dest_name = self._ref_name(rs.dest)
-            self.file_scope[dest_name] = rs.value
+            if rs.dest is not None:
+                # Form 1: return .value pass to .dest
+                dest_name = self._ref_name(rs.dest)
+                self.file_scope[dest_name] = rs.value
+            # else: Form 2 single-return — value already appended to collector
         # StopSignal propagates naturally
+
+        # Assign Form 2 results from collector
+        if result_names and self._return_collector is not None:
+            collector = self._return_collector
+            if len(result_names) > len(collector):
+                raise FatalError(
+                    f"script '{script_node.name.ref}' returned {len(collector)} "
+                    f"value(s) but {len(result_names)} were requested",
+                    script_node.line)
+            for i, rname in enumerate(result_names):
+                dest_name = self._ref_name(rname)
+                self.file_scope[dest_name] = collector[i]
+
+        # Restore return collector
+        self._return_collector = old_collector
+        self._is_multi_return = old_is_multi
+
+        # Restore temp list/dict bindings
+        for name, old_val in temp_list_saves.items():
+            if old_val is None:
+                self.lists.pop(name, None)
+            else:
+                self.lists[name] = old_val
+        for name, old_val in temp_dict_saves.items():
+            if old_val is None:
+                self.dicts.pop(name, None)
+            else:
+                self.dicts[name] = old_val
+
+        # Persist scope so cross-script references (.val.scriptname.script) can resolve
+        script_name = self._ref_name(script_node.name)
+        self.script_scopes[script_name] = dict(scope)
 
     def _find_script(self, script_ref: ValueRef) -> ScriptDef:
         ref = script_ref.ref  # e.g. ".greet" or ".greet.script" or ".calculation.script"
@@ -897,7 +1185,45 @@ class VernExecutor:
             return targets[0].ref.lstrip('.').split('.')[0]
         return None
 
+    _FAIL_CATEGORIES = frozenset(('type', 'file', 'network', 'value'))
+
+    @staticmethod
+    def _classify_error(msg: str) -> str:
+        """Classify an error message into one of the four fail categories."""
+        m = msg.lower()
+        if any(k in m for k in ('fetch', 'send', 'update', 'connection', 'network',
+                                 'http', 'url', 'socket')):
+            return 'network'
+        if any(k in m for k in ('file', 'folder', 'read', 'write', 'append',
+                                 'delete', 'permission', 'does not exist')):
+            return 'file'
+        if any(k in m for k in ('type mismatch', 'expected number', 'expected text',
+                                 'cannot convert', 'type')):
+            return 'type'
+        return 'value'
+
+    def _run_fail_handlers(self, msg: str, node: AttemptBlock,
+                           scope, loop_ctx, container_tag):
+        """Run the appropriate fail handler(s) for a given error message."""
+        category = self._classify_error(msg)
+        fail_scope = dict(scope)
+        fail_scope['__fail_reason__'] = msg
+        fail_scope['__fail_type__'] = category
+
+        # Try typed handlers first
+        for handler_category, handler_body in (node.typed_handlers or []):
+            if handler_category == category:
+                self._exec_body(handler_body, fail_scope, loop_ctx, container_tag)
+                return
+
+        # Fall back to catch-all
+        if node.fail_body is not None:
+            self._exec_body(node.fail_body, fail_scope, loop_ctx, container_tag)
+
     def _exec_attempt(self, node: AttemptBlock, scope, loop_ctx, container_tag):
+        # Validate: no handler body at all means unhandled on fail
+        has_handlers = bool(node.typed_handlers) or node.fail_body is not None
+
         if node.try_all:
             failures = []
             tainted: set = set()   # names of values that failed to initialize
@@ -921,9 +1247,7 @@ class VernExecutor:
                         self.logger.fatal(msg, line, recovered=True)
                     failures.append(msg)
             for fail_msg in failures:
-                fail_scope = dict(scope)
-                fail_scope['__fail_reason__'] = fail_msg
-                self._exec_body(node.fail_body, fail_scope, loop_ctx, container_tag)
+                self._run_fail_handlers(fail_msg, node, scope, loop_ctx, container_tag)
         else:
             try:
                 self._exec_body(node.body, scope, loop_ctx, container_tag)
@@ -932,9 +1256,149 @@ class VernExecutor:
                 line = e.line if hasattr(e, 'line') else 0
                 if self.logger:
                     self.logger.fatal(msg, line, recovered=True)
-                fail_scope = dict(scope)
-                fail_scope['__fail_reason__'] = msg
-                self._exec_body(node.fail_body, fail_scope, loop_ctx, container_tag)
+                self._run_fail_handlers(msg, node, scope, loop_ctx, container_tag)
+
+    # ── Parse / Inspect ───────────────────────────────────────────────────────
+
+    def _exec_parse(self, node: ParseInstr, scope, loop_ctx, container_tag):
+        """Execute a parse instruction — parses text into list or dictionary."""
+        import json as _json
+        import csv as _csv
+        import xml.etree.ElementTree as _ET
+        import configparser as _cp
+        import io as _io
+
+        source_val = self._eval_expr(node.source, scope, loop_ctx, container_tag)
+        if not isinstance(source_val, str):
+            raise FatalError(
+                f"parse: source must be a text value, got {self._type_name(source_val)}",
+                node.line)
+
+        fmt = node.format.lower()
+        result_type = node.result_type.lower()
+        result_name = node.result_name
+
+        try:
+            if fmt == 'json':
+                data = _json.loads(source_val)
+                if result_type == 'dictionary':
+                    if not isinstance(data, dict):
+                        raise FatalError(
+                            f"parse json: expected an object, got {type(data).__name__}",
+                            node.line)
+                    od = OrderedDict((str(k), str(v) if not isinstance(v, dict) else v)
+                                     for k, v in data.items())
+                    self.dicts[result_name] = od
+                else:  # list
+                    if not isinstance(data, list):
+                        raise FatalError(
+                            f"parse json: expected an array, got {type(data).__name__}",
+                            node.line)
+                    self.lists[result_name] = [str(i) if not isinstance(i, dict) else i
+                                               for i in data]
+
+            elif fmt == 'csv':
+                if result_type != 'list':
+                    raise FatalError("parse csv: result type must be 'list'", node.line)
+                reader = _csv.DictReader(_io.StringIO(source_val))
+                rows = []
+                for row in reader:
+                    rows.append(OrderedDict((k, str(v)) for k, v in row.items()))
+                self.lists[result_name] = rows
+
+            elif fmt == 'xml':
+                if result_type != 'dictionary':
+                    raise FatalError("parse xml: result type must be 'dictionary'", node.line)
+                root = _ET.fromstring(source_val)
+                od = OrderedDict()
+                for child in root:
+                    od[child.tag] = child.text or ''
+                self.dicts[result_name] = od
+
+            elif fmt == 'ini':
+                if result_type != 'dictionary':
+                    raise FatalError("parse ini: result type must be 'dictionary'", node.line)
+                config = _cp.ConfigParser()
+                config.read_string(source_val)
+                od = OrderedDict()
+                for section in config.sections():
+                    section_od = OrderedDict(config.items(section))
+                    od[section] = section_od
+                self.dicts[result_name] = od
+
+            else:
+                raise FatalError(f"parse: unknown format '{fmt}'", node.line)
+
+        except (FatalError, RecoverableError):
+            raise
+        except Exception as e:
+            raise FatalError(f"parse {fmt}: {e}", node.line)
+
+    def _exec_inspect(self, node: InspectInstr, scope, loop_ctx, container_tag):
+        """Execute an inspect instruction — prints structure to terminal."""
+        import json as _json
+        import csv as _csv
+        import xml.etree.ElementTree as _ET
+        import configparser as _cp
+        import io as _io
+
+        source_val = self._eval_expr(node.source, scope, loop_ctx, container_tag)
+        if not isinstance(source_val, str):
+            raise FatalError(
+                f"inspect: source must be a text value, got {self._type_name(source_val)}",
+                node.line)
+
+        fmt = node.format.lower()
+        try:
+            if fmt == 'json':
+                data = _json.loads(source_val)
+                print(f"[inspect json]")
+                self._print_structure(data, indent=2)
+            elif fmt == 'csv':
+                reader = _csv.DictReader(_io.StringIO(source_val))
+                rows = list(reader)
+                print(f"[inspect csv] {len(rows)} row(s), fields: "
+                      f"{', '.join(reader.fieldnames or [])}")
+                for i, row in enumerate(rows[:5], 1):
+                    print(f"  row {i}: {dict(row)}")
+                if len(rows) > 5:
+                    print(f"  ... ({len(rows) - 5} more rows)")
+            elif fmt == 'xml':
+                root = _ET.fromstring(source_val)
+                print(f"[inspect xml] root: <{root.tag}>, children: "
+                      f"{', '.join(f'<{c.tag}>' for c in root)}")
+            elif fmt == 'ini':
+                config = _cp.ConfigParser()
+                config.read_string(source_val)
+                print(f"[inspect ini] sections: {', '.join(config.sections())}")
+                for section in config.sections():
+                    print(f"  [{section}]: {', '.join(config.options(section))}")
+            else:
+                raise FatalError(f"inspect: unknown format '{fmt}'", node.line)
+        except (FatalError, RecoverableError):
+            raise
+        except Exception as e:
+            raise FatalError(f"inspect {fmt}: {e}", node.line)
+
+    def _print_structure(self, data, indent: int = 0):
+        """Recursively print a parsed data structure."""
+        pad = ' ' * indent
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if isinstance(v, (dict, list)):
+                    print(f"{pad}{k}:")
+                    self._print_structure(v, indent + 2)
+                else:
+                    print(f"{pad}{k}: {v}")
+        elif isinstance(data, list):
+            for i, item in enumerate(data):
+                if isinstance(item, (dict, list)):
+                    print(f"{pad}[{i}]:")
+                    self._print_structure(item, indent + 2)
+                else:
+                    print(f"{pad}[{i}]: {item}")
+        else:
+            print(f"{pad}{data}")
 
     # ── Expression evaluation ──────────────────────────────────────────────────
 
@@ -982,11 +1446,20 @@ class VernExecutor:
                                  expr.line)
             return loop_ctx[3]
 
+        elif t is NoneLit:
+            return None   # none type
+
         elif t is FailReason:
             reason = scope.get('__fail_reason__')
             if reason is None:
                 raise FatalError("fail reason: used outside if fail block", expr.line)
             return reason
+
+        elif t is FailType:
+            ft = scope.get('__fail_type__')
+            if ft is None:
+                raise FatalError("fail type: used outside if fail block", expr.line)
+            return ft
 
         elif t is ValueRef:
             return self._resolve_ref(expr, scope, loop_ctx, container_tag)
@@ -1042,6 +1515,15 @@ class VernExecutor:
                 path = self._resolve_file_ref(cond.ref)
             return os.path.exists(path)
 
+        elif t is PathExistCheck:
+            # path .value exist — dynamic file path from runtime value
+            path_str = self._eval_expr(cond.ref, scope, loop_ctx, container_tag)
+            if not isinstance(path_str, str):
+                raise FatalError(
+                    f"path exist: path must be a text value, got {self._type_name(path_str)}",
+                    cond.line)
+            return os.path.exists(path_str)
+
         elif t is StartsWithCond:
             text = str(self._eval_expr(cond.ref, scope, loop_ctx, container_tag))
             pat = str(self._eval_expr(cond.pattern, scope, loop_ctx, container_tag))
@@ -1078,6 +1560,31 @@ class VernExecutor:
     def _resolve_ref(self, vref: ValueRef, scope, loop_ctx, container_tag):
         name = self._ref_name(vref)
         effective_tag = self._strip_tag(vref.container) or self._strip_tag(container_tag)
+
+        # ── Explicit cross-script reference: .valuename.scriptname.script ────────
+        # Chain has the form  .value[.more].scriptname.script[.filename.vern]
+        # "script" descriptor means: look in the named script's persisted scope.
+        ref_parts = [p for p in vref.ref.lstrip('.').split('.') if p]
+        if 'script' in ref_parts:
+            script_idx = ref_parts.index('script')
+            if script_idx >= 2:
+                # parts[0] is value name, parts[1..script_idx-1] are script name
+                val_name = ref_parts[0]
+                script_name = ref_parts[script_idx - 1]
+                # Check current file's script_scopes
+                if script_name in self.script_scopes:
+                    saved = self.script_scopes[script_name]
+                    if val_name in saved:
+                        return saved[val_name]
+                # Check imported executors
+                for imp in self.imported:
+                    if script_name in imp.script_scopes:
+                        saved = imp.script_scopes[script_name]
+                        if val_name in saved:
+                            return saved[val_name]
+                raise FatalError(
+                    f"undefined value: .{val_name} in script .{script_name}",
+                    vref.line)
 
         # Container lookup first
         if effective_tag and effective_tag in self.containers:
@@ -1170,6 +1677,15 @@ class VernExecutor:
     # ── Comparison ─────────────────────────────────────────────────────────────
 
     def _compare(self, op: str, left, right, line: int) -> bool:
+        # None (none type) — only equality comparisons are valid
+        if left is None or right is None:
+            if op in ('IS_EQUAL_TO', 'EQ'):
+                return left is right
+            if op in ('IS_NOT', 'NEQ'):
+                return left is not right
+            raise FatalError(
+                f"comparison: 'none' values only support = and !=", line)
+
         # Normalize date/time tuples for comparison
         if isinstance(left, tuple):
             left = left[1]
@@ -1217,6 +1733,8 @@ class VernExecutor:
         return self._type_name(lst[0]) if lst else None
 
     def _type_name(self, val) -> str:
+        if val is None:
+            return 'none'
         if type(val) is bool:
             return 'true/false'
         if isinstance(val, float):
@@ -1230,10 +1748,16 @@ class VernExecutor:
         return type(val).__name__
 
     def _to_display(self, val) -> str:
+        if val is None:
+            return 'none'
         if type(val) is bool:
             return 'true' if val else 'false'
         if isinstance(val, float):
-            if val == int(val) and abs(val) < 1e15 and not math.isinf(val):
+            if math.isinf(val):
+                return 'infinity' if val > 0 else '-infinity'
+            if math.isnan(val):
+                return 'nan'
+            if val == int(val) and abs(val) < 1e15:
                 return str(int(val))
             return str(val)
         if isinstance(val, tuple) and len(val) == 2:
@@ -1569,6 +2093,22 @@ class VernExecutor:
         path = self._resolve_file_ref(node.path)
         if path in self._loading_files:
             raise FatalError(f"circular import: {path}", node.line)
+        # Fallback: if not found relative to the program, and the path contains
+        # .lib.folder, retry relative to the interpreter's own directory so the
+        # stdlib in lib/ alongside vern.exe works regardless of where the user's
+        # program lives. Only .lib.folder imports get this treatment — all other
+        # import failures are fatal immediately.
+        if not os.path.exists(path):
+            ref = node.path.ref
+            parts = [p for p in ref.split('.') if p]
+            pairs = list(zip(parts, parts[1:]))
+            if ('lib', 'folder') in pairs:
+                executor_dir = os.path.dirname(os.path.abspath(sys.executable))
+                file_name, folders, use_parent = self._parse_ref_chain(ref, node.line)
+                if not use_parent:
+                    alt_path = os.path.join(executor_dir, *folders, file_name) if file_name else None
+                    if alt_path and os.path.exists(alt_path):
+                        path = alt_path
         if not os.path.exists(path):
             raise FatalError(f"import: file not found: {path}", node.line)
         imp = VernExecutor(path, logger=self.logger)

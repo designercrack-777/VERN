@@ -1,0 +1,115 @@
+// TEST 06 — List Parameters
+// Tests: pass list, iterate, modify (reference semantics), multiple list params
+
+list scores
+  85
+  92
+  67
+  74
+  88
+end list
+
+show "--- 1. iterate list param ---"
+script .printall takes list mylist
+  repeat through list mylist
+    show current item
+  end repeat
+end script
+
+run .printall.script with list scores
+// expected: 85 / 92 / 67 / 74 / 88
+
+show "--- 2. sum a list param ---"
+script .sumlist takes list mylist
+  set .total to 0
+  repeat through list mylist
+    set .total to .total + current item
+  end repeat
+  return .total
+end script
+
+run .sumlist.script with list scores as .total
+show .total
+// expected: 406
+if .total = 406
+  show "PASS: sum correct"
+otherwise
+  show "FAIL: expected 406"
+end if
+
+show "--- 3. reference semantics — modify inside script changes original ---"
+count list scores as .before
+show .before
+// expected: 5
+
+script .additem takes list mylist, .newval
+  put .newval in list mylist
+end script
+
+run .additem.script with list scores, 100
+count list scores as .after
+show .after
+// expected: 6
+if .after = 6
+  show "PASS: list modified via param reference"
+otherwise
+  show "FAIL: expected 6 items after add"
+end if
+
+show "--- 4. search in list param ---"
+script .findval takes list mylist, .target
+  set .found to false
+  set .pos to 0
+  set .i to 0
+  repeat through list mylist
+    set .i to .i + 1
+    if current item = .target
+      set .found to true
+      set .pos to .i
+      exit loop
+    end if
+  end repeat
+  return .pos
+end script
+
+run .findval.script with list scores, 92 as .pos92
+show .pos92
+// expected: 2
+if .pos92 = 2
+  show "PASS: found value at correct position"
+otherwise
+  show "FAIL: expected position 2"
+end if
+
+run .findval.script with list scores, 999 as .posmiss
+show .posmiss
+// expected: 0
+if .posmiss = 0
+  show "PASS: missing value returns 0"
+otherwise
+  show "FAIL: expected 0 for missing value"
+end if
+
+show "--- 5. two list params ---"
+list extras
+  10
+  20
+end list
+
+script .mergecount takes list alist, list blist
+  count list alist as .ca
+  count list blist as .cb
+  set .total to .ca + .cb
+  return .total
+end script
+
+run .mergecount.script with list scores, list extras as .combined
+show .combined
+// expected: 8 (6 from scores after add above, 2 from extras)
+if .combined = 8
+  show "PASS: two list params counted correctly"
+otherwise
+  show "FAIL: expected 8"
+end if
+
+show "--- DONE ---"

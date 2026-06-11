@@ -1,0 +1,105 @@
+// TEST 10 — Typed Exception Handling
+// Tests: each category handler runs for its category, catch-all fallback,
+//        fail type keyword, typed handler takes priority over catch-all
+
+show "--- 1. value error caught by value handler ---"
+attempt
+  set .x to 1 / 0
+if fail "value"
+  show "PASS: value handler ran for division by zero"
+  show fail type
+  // expected: value
+if fail
+  show "FAIL: catch-all should not run for value error"
+end fail
+end attempt
+
+show "--- 2. file error caught by file handler ---"
+attempt
+  read .data from .nonexistent_file_xyz.vern
+if fail "file"
+  show "PASS: file handler ran for missing file"
+  show fail type
+  // expected: file
+if fail
+  show "FAIL: catch-all should not run for file error"
+end fail
+end attempt
+
+show "--- 3. type error caught by type handler ---"
+attempt
+  set .a to "hello"
+  set .b to .a - 1
+if fail "type"
+  show "PASS: type handler ran for type mismatch"
+  show fail type
+  // expected: type
+if fail
+  show "FAIL: catch-all should not run for type error"
+end fail
+end attempt
+
+show "--- 4. catch-all runs when no typed handler matches ---"
+attempt
+  set .bad to 0 / 0
+if fail "network"
+  show "FAIL: network handler should not run for value error"
+if fail
+  show "PASS: catch-all ran when no typed handler matched"
+  show fail type
+  show fail reason
+end fail
+end attempt
+
+show "--- 5. fail type and fail reason both available ---"
+attempt
+  read .x from .file_that_does_not_exist.vern
+if fail
+  show "fail type:"
+  show fail type
+  show "fail reason:"
+  show fail reason
+  show "PASS: both fail type and fail reason accessible"
+end fail
+end attempt
+
+show "--- 6. multiple typed handlers, correct one fires ---"
+attempt
+  set .y to "text"
+  set .z to .y * 2
+if fail "network"
+  show "FAIL: network handler fired for type error"
+if fail "file"
+  show "FAIL: file handler fired for type error"
+if fail "type"
+  show "PASS: correct type handler fired"
+if fail
+  show "FAIL: catch-all fired when type handler should have"
+end fail
+end attempt
+
+show "--- 7. attempt all — each failure individually handled ---"
+list results
+end list
+
+attempt all
+  set .a1 to 1
+  set .a2 to .a1 / 0
+  set .a3 to 3
+if fail
+  show "caught in attempt all:"
+  show fail reason
+  put "caught" in list results
+end fail
+end attempt
+
+count list results as .caught
+show .caught
+// expected: 1 (only the division by zero failed)
+if .caught = 1
+  show "PASS: attempt all caught exactly one failure"
+otherwise
+  show "FAIL: expected 1 caught"
+end if
+
+show "--- DONE ---"

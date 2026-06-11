@@ -1,0 +1,140 @@
+// TEST 16 — listsearch.vern — finditem and hasitem
+// Tests: found, not found, empty list, first/last/middle positions
+
+import .listsearch.vern.lib.folder
+
+list names
+  "alice"
+  "bob"
+  "carol"
+  "diana"
+  "eve"
+end list
+
+show "--- 1. finditem — item at start ---"
+run .finditem.script with list names, "alice" as .pos
+show .pos
+// expected: 1
+if .pos = 1
+  show "PASS: alice found at position 1"
+otherwise
+  show "FAIL: expected position 1"
+end if
+
+show "--- 2. finditem — item at end ---"
+run .finditem.script with list names, "eve" as .pos
+show .pos
+// expected: 5
+if .pos = 5
+  show "PASS: eve found at position 5"
+otherwise
+  show "FAIL: expected position 5"
+end if
+
+show "--- 3. finditem — item in middle ---"
+run .finditem.script with list names, "carol" as .pos
+show .pos
+// expected: 3
+if .pos = 3
+  show "PASS: carol found at position 3"
+otherwise
+  show "FAIL: expected position 3"
+end if
+
+show "--- 4. finditem — not found returns 0 ---"
+run .finditem.script with list names, "frank" as .pos
+show .pos
+// expected: 0
+if .pos = 0
+  show "PASS: missing item returns 0"
+otherwise
+  show "FAIL: expected 0 for missing"
+end if
+
+show "--- 5. hasitem — item present ---"
+run .hasitem.script with list names, "diana" as .found
+show .found
+// expected: true
+if .found = true
+  show "PASS: diana is in list"
+otherwise
+  show "FAIL: diana should be found"
+end if
+
+show "--- 6. hasitem — item not present ---"
+run .hasitem.script with list names, "george" as .found
+show .found
+// expected: false
+if .found = false
+  show "PASS: george is not in list"
+otherwise
+  show "FAIL: george should not be found"
+end if
+
+show "--- 7. empty list ---"
+list empty
+end list
+
+run .finditem.script with list empty, "anything" as .pos
+show .pos
+// expected: 0
+if .pos = 0
+  show "PASS: finditem on empty list returns 0"
+otherwise
+  show "FAIL: expected 0 for empty list"
+end if
+
+run .hasitem.script with list empty, "anything" as .found
+show .found
+// expected: false
+if .found = false
+  show "PASS: hasitem on empty list returns false"
+otherwise
+  show "FAIL: expected false for empty list"
+end if
+
+show "--- 8. finditem returns first match only ---"
+list dupes
+  "x"
+  "y"
+  "x"
+  "z"
+end list
+
+run .finditem.script with list dupes, "x" as .pos
+show .pos
+// expected: 1 (first occurrence)
+if .pos = 1
+  show "PASS: finditem returns first match"
+otherwise
+  show "FAIL: expected first occurrence at 1"
+end if
+
+show "--- 9. number list ---"
+list nums
+  10
+  20
+  30
+  40
+  50
+end list
+
+run .finditem.script with list nums, 30 as .pos
+show .pos
+// expected: 3
+if .pos = 3
+  show "PASS: number 30 found at position 3"
+otherwise
+  show "FAIL: expected position 3"
+end if
+
+run .hasitem.script with list nums, 50 as .found
+show .found
+// expected: true
+if .found = true
+  show "PASS: number 50 found in list"
+otherwise
+  show "FAIL: 50 should be found"
+end if
+
+show "--- DONE ---"

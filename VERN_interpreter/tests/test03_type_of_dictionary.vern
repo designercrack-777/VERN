@@ -1,0 +1,62 @@
+// TEST 03 — Type Of Dictionary
+// Tests: type of returns "dictionary" for a dict value
+
+show "--- 1. type of nested dict via current value ---"
+dictionary inner
+  "x": "10"
+  "y": "20"
+end dictionary
+
+list container
+  inner
+end list
+
+repeat through list container
+  type of current item as .t
+  if .t = "dictionary"
+    show "PASS: type of dict value is dictionary"
+  otherwise
+    show "FAIL: expected dictionary, got"
+    show .t
+  end if
+end repeat
+
+show "--- 2. type of via get ---"
+dictionary outer
+  "sub": inner
+end dictionary
+
+get dictionary outer key "sub" as .sub
+type of .sub as .subtype
+show .subtype
+// expected: dictionary
+if .subtype = "dictionary"
+  show "PASS: type of retrieved dict is dictionary"
+otherwise
+  show "FAIL: expected dictionary"
+end if
+
+show "--- 3. type of other types for comparison ---"
+set .txt to "hello"
+set .num to 42
+set .bool to true
+type of .txt as .tt
+type of .num as .nt
+type of .bool as .bt
+show .tt
+// expected: text
+show .nt
+// expected: number
+show .bt
+// expected: true/false
+
+show "--- 4. branching on type of dictionary (via retrieved value) ---"
+// .sub is already a dict value retrieved from outer
+type of .sub as .kind
+if .kind = "dictionary"
+  show "PASS: branch taken on dictionary type"
+otherwise
+  show "FAIL: should have taken dictionary branch"
+end if
+
+show "--- DONE ---"

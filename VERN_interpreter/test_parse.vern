@@ -1,0 +1,28 @@
+// Test parse/inspect using external text
+
+// Write a JSON file first, then read it
+write "{" to path "test.json"
+append "  " to path "test.json"
+
+// Simpler: create JSON directly using text concatenation
+set .open to "{"
+set .close to "}"
+set .nl to "
+"
+set .jsontext to "{}"
+
+// Test parse with simple valid JSON dict
+// We need to write the file externally - use a pre-made value
+// Instead just test with a known string built at runtime
+set .key to "name"
+set .val to "alice"
+
+// JSON parse test - use inline string concat approach
+// Actually in VERN we can't embed quotes... let's just test that parse parses
+// a JSON string stored in a file
+
+// Write test JSON to file
+write "test.json" to path "setup.txt"
+read .setup from path "setup.txt"
+show .setup
+

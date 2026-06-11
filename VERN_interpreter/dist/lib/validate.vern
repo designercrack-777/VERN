@@ -1,0 +1,19 @@
+// validate.vern
+// VERN Standard Library — Safe Input Validation
+// The VERN Project — 2026
+
+script .validate takes .prompt, .targettype
+    set .valid to false
+    while .valid = false
+        show .prompt
+        ask .rawinput
+        attempt
+            convert .rawinput to number as .converted
+            set .valid to true
+        if fail
+            show "invalid input, please try again"
+        end fail
+        end attempt
+    end while
+    return .converted
+end script

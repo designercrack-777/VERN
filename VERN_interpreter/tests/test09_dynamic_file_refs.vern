@@ -1,0 +1,74 @@
+// TEST 09 — Dynamic File References (path keyword)
+// Tests: write, read, append, exist check, delete — all with runtime path
+
+show "--- 1. build path at runtime ---"
+set .dir to "tests_output_"
+set .filename to .dir + "test09.txt"
+show .filename
+// expected: tests_output_test09.txt
+
+show "--- 2. write to dynamic path ---"
+write "line one" to path .filename
+show "PASS: write to dynamic path completed"
+
+show "--- 3. read from dynamic path ---"
+read .content from path .filename
+show .content
+// expected: line one
+if .content = "line one"
+  show "PASS: read from dynamic path correct"
+otherwise
+  show "FAIL: content mismatch"
+end if
+
+show "--- 4. append to dynamic path ---"
+append "line two" to path .filename
+read .content2 from path .filename
+show .content2
+// expected: line one (first line only — read reads first line)
+if .content2 = "line one"
+  show "PASS: first line still correct after append"
+otherwise
+  show "FAIL: first line changed"
+end if
+
+show "--- 5. exist check on dynamic path ---"
+if path .filename exist
+  show "PASS: file exists"
+otherwise
+  show "FAIL: file should exist"
+end if
+
+show "--- 6. exist check on non-existent path ---"
+set .missing to "tests_does_not_exist_xyz.txt"
+if path .missing exist
+  show "FAIL: missing file should not exist"
+otherwise
+  show "PASS: non-existent file correctly not found"
+end if
+
+show "--- 7. delete via dynamic path ---"
+delete path .filename
+if path .filename exist
+  show "FAIL: file should be gone after delete"
+otherwise
+  show "PASS: file deleted successfully"
+end if
+
+show "--- 8. path constructed from multiple parts ---"
+set .base to "test09_"
+set .ext to ".txt"
+set .num to 1
+convert .num to text as .numstr
+set .path2 to .base + .numstr + .ext
+show .path2
+// expected: test09_1.txt
+write "content" to path .path2
+if path .path2 exist
+  show "PASS: constructed path file created"
+otherwise
+  show "FAIL: constructed path file not found"
+end if
+delete path .path2
+
+show "--- DONE ---"

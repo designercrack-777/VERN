@@ -1,0 +1,19 @@
+// Test Phase 2: dynamic file refs
+
+set .filename to "testout.txt"
+write "hello from path" to path .filename
+read .content from path .filename
+show .content
+
+// Test path exist
+if path .filename exist
+  show "file exists"
+end if
+
+delete path .filename
+if path .filename exist
+  show "still exists"
+otherwise
+  show "deleted ok"
+end if
+

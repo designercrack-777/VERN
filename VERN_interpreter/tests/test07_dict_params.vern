@@ -1,0 +1,97 @@
+// TEST 07 — Dictionary Parameters
+// Tests: pass dict, iterate, get/put inside script, reference semantics
+
+dictionary student
+  "name": "alice"
+  "grade": "A"
+  "score": "95"
+end dictionary
+
+show "--- 1. iterate dict param ---"
+script .showdict takes dictionary d
+  repeat through dictionary d
+    show current key
+    show current value
+  end repeat
+end script
+
+run .showdict.script with dictionary student
+// expected: name/alice, grade/A, score/95
+
+show "--- 2. get value from dict param ---"
+script .getfield takes dictionary d, .field
+  get dictionary d key .field as .val
+  return .val
+end script
+
+run .getfield.script with dictionary student, "grade" as .grade
+show .grade
+// expected: A
+if .grade = "A"
+  show "PASS: get from dict param correct"
+otherwise
+  show "FAIL: expected A"
+end if
+
+show "--- 3. reference semantics — modify inside script changes original ---"
+script .setfield takes dictionary d, .key, .val
+  put .val in dictionary d key .key
+end script
+
+run .setfield.script with dictionary student, "year", "senior"
+get dictionary student key "year" as .yr
+show .yr
+// expected: senior
+if .yr = "senior"
+  show "PASS: dict modified via param reference"
+otherwise
+  show "FAIL: expected senior"
+end if
+
+show "--- 4. count keys in dict param ---"
+script .countkeys takes dictionary d
+  set .n to 0
+  repeat through dictionary d
+    set .n to .n + 1
+  end repeat
+  return .n
+end script
+
+run .countkeys.script with dictionary student as .keycount
+show .keycount
+// expected: 4 (name, grade, score, year)
+if .keycount = 4
+  show "PASS: key count correct"
+otherwise
+  show "FAIL: expected 4 keys"
+end if
+
+show "--- 5. two dict params ---"
+dictionary extra
+  "a": "1"
+  "b": "2"
+end dictionary
+
+script .totalkeys takes dictionary d1, dictionary d2
+  set .c1 to 0
+  repeat through dictionary d1
+    set .c1 to .c1 + 1
+  end repeat
+  set .c2 to 0
+  repeat through dictionary d2
+    set .c2 to .c2 + 1
+  end repeat
+  set .total to .c1 + .c2
+  return .total
+end script
+
+run .totalkeys.script with dictionary student, dictionary extra as .total
+show .total
+// expected: 6 (4 + 2)
+if .total = 6
+  show "PASS: two dict params total keys correct"
+otherwise
+  show "FAIL: expected 6"
+end if
+
+show "--- DONE ---"

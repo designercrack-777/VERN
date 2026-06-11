@@ -1,0 +1,34 @@
+// Test dict params and typed attempt
+
+dictionary scores
+  "alice": "95"
+  "bob": "87"
+end dictionary
+
+script .showdict takes dictionary d
+  repeat through dictionary d
+    show current key, ":", current value
+  end repeat
+end script
+
+run .showdict.script with dictionary scores
+
+// Test typed exception handlers
+attempt
+  set .x to 1 / 0
+if fail "value"
+  show "value error caught"
+if fail
+  show "catch-all"
+end fail
+end attempt
+
+// Test fail type
+attempt
+  set .x to 1 / 0
+if fail
+  show fail type
+  show fail reason
+end fail
+end attempt
+

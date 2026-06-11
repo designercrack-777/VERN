@@ -1,0 +1,66 @@
+// VERIFICATION 2 — Standard library import from a non-test directory
+// This program lives in verification/subdir/ — two levels away from
+// the interpreter root. It imports two stdlib files using dot-chain
+// syntax and confirms the interpreter-directory fallback path resolves
+// correctly from a program that is NOT in the tests/ directory.
+
+show "Program location: verification/subdir/"
+show ""
+
+// ── Test 1: import resolves without error ─────────────────────────────────
+show "--- 1. import validate.vern ---"
+attempt
+  import .validate.vern.lib.folder
+  show "PASS: validate.vern resolved and imported from lib/ fallback path"
+if fail
+  show "FAIL: import failed:"
+  show fail reason
+end fail
+end attempt
+
+// ── Test 2: import second stdlib file ─────────────────────────────────────
+show "--- 2. import strings.vern ---"
+attempt
+  import .strings.vern.lib.folder
+  show "PASS: strings.vern resolved and imported from lib/ fallback path"
+if fail
+  show "FAIL: import failed:"
+  show fail reason
+end fail
+end attempt
+
+// ── Test 3: call .pad from strings.vern ───────────────────────────────────
+show "--- 3. call .pad from strings.vern ---"
+run .pad.script with "hello", 10, "left" as .out1
+show .out1
+length of .out1 as .len1
+show .len1
+if .len1 = 10
+  show "PASS: .pad returned 10-character string"
+otherwise
+  show "FAIL: expected length 10, got:"
+  show .len1
+end if
+
+run .pad.script with "hi", 8, "right" as .out2
+show .out2
+length of .out2 as .len2
+show .len2
+if .len2 = 8
+  show "PASS: right-pad returned 8-character string"
+otherwise
+  show "FAIL: expected length 8, got:"
+  show .len2
+end if
+
+// Confirm right alignment: last two chars should be "hi"
+set .expected to "      hi"
+if .out2 = .expected
+  show "PASS: right-aligned padding correct"
+otherwise
+  show "FAIL: expected '      hi', got:"
+  show .out2
+end if
+
+show ""
+show "--- DONE ---"

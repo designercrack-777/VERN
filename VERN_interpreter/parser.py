@@ -161,6 +161,14 @@ class Parser:
             self._advance()
             return FailReason(line=line)
 
+        if t.type == "FAIL_TYPE":
+            self._advance()
+            return FailType(line=line)
+
+        if t.type == "NONE":
+            self._advance()
+            return NoneLit(line=line)
+
         raise ParseError(f"expected a value, got {t.type} ({t.value!r})", line)
 
     def _parse_expr(self, line_no: Optional[int] = None) -> Any:
@@ -222,6 +230,16 @@ class Parser:
             self._advance()
             inner = self._parse_simple_cond(line_no)
             return NotCond(cond=inner, line=line)
+
+        # Dynamic file exist check: path .value exist
+        if t.type == "PATH":
+            self._advance()
+            ref = self._parse_value_ref()
+            t2 = self._peek()
+            if t2 and t2.type == "EXIST" and t2.line == line_no:
+                self._advance()
+                return PathExistCheck(ref=ref, line=line)
+            raise ParseError("'path' in condition must be followed by 'exist'", line)
 
         # not in used as prefix check — already handled by tokenizer as NOT_IN
         # so we won't see bare NOT here for membership
@@ -436,6 +454,10 @@ class Parser:
             "DELETE":             self._parse_delete,
             "FETCH":              self._parse_fetch,
             "SEND":               self._parse_send,
+            "UPDATE":             self._parse_update,
+            "PARSE":              self._parse_parse,
+            "INSPECT":            self._parse_inspect,
+            "INVOKE":             self._parse_invoke,
         }
 
         handler = dispatch.get(tt)
@@ -449,6 +471,13 @@ class Parser:
         """
         Parse a sequence of instructions until one of the terminator token
         types appears (without consuming it), or end of input.
+
+        When inside a script block (_in_script is True), END_SCRIPT is always
+        treated as a body terminator regardless of the terminator set passed in.
+        This ensures that inline if / then instructions inside a script never
+        cause the closing end script to be consumed by an inner block parser
+        whose terminator set does not include END_SCRIPT.  The token is left
+        unconsumed so the enclosing _parse_script_def can expect and consume it.
         """
         body = []
         while True:
@@ -456,6 +485,11 @@ class Parser:
             if t is None:
                 break
             if t.type in terminators:
+                break
+            # Hard sentinel: when inside a script, END_SCRIPT must always stop
+            # any nested body parse so the outer script body and _expect can
+            # consume it at the right level.
+            if self._in_script and t.type == "END_SCRIPT" and "END_SCRIPT" not in terminators:
                 break
             body.append(self._parse_instruction())
         return body
@@ -473,6 +507,58 @@ class Parser:
 
     # ── Script definition ──────────────────────────────────────────────────────
 
+    def _parse_param(self) -> Any:
+        """Parse one parameter in a takes clause.
+
+        Accepts:
+          - list name         → ("list", name)
+          - dictionary name   → ("dict", name)
+          - script name       → ("script", name)
+          - .ref              → ValueRef (existing form)
+        """
+        t = self._peek()
+        if t is None:
+            raise ParseError("expected parameter", -1)
+        if t.type == "LIST":
+            self._advance()
+            name = self._expect("IDENTIFIER").value
+            return ("list", name)
+        if t.type == "DICTIONARY":
+            self._advance()
+            name = self._expect("IDENTIFIER").value
+            return ("dict", name)
+        if t.type == "SCRIPT":
+            self._advance()
+            name = self._expect("IDENTIFIER").value
+            return ("script", name)
+        return self._parse_value_ref()
+
+    def _parse_run_arg(self, line: int) -> Any:
+        """Parse one argument in a run with clause.
+
+        Accepts:
+          - list name         → ("list", name)
+          - dictionary name   → ("dict", name)
+          - script .ref       → ("script", ValueRef)
+          - any atom          → existing form
+        """
+        t = self._peek()
+        if t is None:
+            raise ParseError("expected argument", -1)
+        if t.type == "LIST":
+            self._advance()
+            name = self._expect("IDENTIFIER").value
+            return ("list", name)
+        if t.type == "DICTIONARY":
+            self._advance()
+            name = self._expect("IDENTIFIER").value
+            return ("dict", name)
+        if t.type == "SCRIPT":
+            self._advance()
+            ref = self._parse_value_ref()
+            return ("script", ref)
+        return self._parse_atom()
+
     def _parse_script_def(self) -> ScriptDef:
         line = self._peek().line
         self._expect("SCRIPT")
@@ -481,13 +567,13 @@ class Parser:
         params = []
         container = None
 
-        # optional takes .p1, .p2
+        # optional takes .p1, .p2  (or list/dict/script typed params)
         if self._same_line(line) and self._check("TAKES"):
             self._advance()
-            params.append(self._parse_value_ref())
+            params.append(self._parse_param())
             while self._same_line(line) and self._check("COMMA"):
                 self._advance()
-                params.append(self._parse_value_ref())
+                params.append(self._parse_param())
 
         # optional container tag on same line
         if self._same_line(line) and self._check("CONTAINER_TAG"):
@@ -549,7 +635,7 @@ class Parser:
             if t.type == "IDENTIFIER":
                 items.append(self._advance().value)
             elif t.type in ("TEXT_LITERAL", "NUMBER_LITERAL", "DATE_LITERAL",
-                            "TIME_LITERAL", "TRUE", "FALSE"):
+                            "TIME_LITERAL", "TRUE", "FALSE", "NONE"):
                 items.append(self._parse_atom())
             else:
                 raise ParseError(
@@ -631,24 +717,40 @@ class Parser:
             self._advance()
             targets.append(self._parse_value_ref())
         self._expect("FROM")
+        # Support: from path .ref (dynamic path)
+        source_is_path = False
+        if self._same_line(line) and self._check("PATH"):
+            self._advance()
+            source_is_path = True
         source = self._parse_value_ref()
-        return ReadInstr(targets=targets, source=source, line=line)
+        return ReadInstr(targets=targets, source=source,
+                         source_is_path=source_is_path, line=line)
 
     def _parse_write(self) -> WriteInstr:
         line = self._peek().line
         self._expect("WRITE")
         values = self._parse_value_list(line)
         self._expect("TO")
+        # Support: to path .ref (dynamic path)
+        dest_is_path = False
+        if self._same_line(line) and self._check("PATH"):
+            self._advance()
+            dest_is_path = True
         dest = self._parse_value_ref()
-        return WriteInstr(values=values, dest=dest, line=line)
+        return WriteInstr(values=values, dest=dest, dest_is_path=dest_is_path, line=line)
 
     def _parse_append(self) -> AppendInstr:
         line = self._peek().line
         self._expect("APPEND")
         values = self._parse_value_list(line)
         self._expect("TO")
+        # Support: to path .ref (dynamic path)
+        dest_is_path = False
+        if self._same_line(line) and self._check("PATH"):
+            self._advance()
+            dest_is_path = True
         dest = self._parse_value_ref()
-        return AppendInstr(values=values, dest=dest, line=line)
+        return AppendInstr(values=values, dest=dest, dest_is_path=dest_is_path, line=line)
 
     # ── Run / return ───────────────────────────────────────────────────────────
 
@@ -658,22 +760,58 @@ class Parser:
         script = self._parse_value_ref()
         args = []
         container = None
+        result_names = []
         if self._same_line(line) and self._check("WITH"):
             self._advance()
-            args.append(self._parse_atom())
+            args.append(self._parse_run_arg(line))
             while self._same_line(line) and self._check("COMMA"):
                 self._advance()
-                args.append(self._parse_atom())
+                # Stop parsing args if we've hit a REFERENCE that looks like result
+                # (we detect AS below)
+                args.append(self._parse_run_arg(line))
         if self._same_line(line) and self._check("CONTAINER_TAG"):
             container = self._advance().value
-        return RunInstr(script=script, args=args, container=container, line=line)
+        # Form 2: as .result [, .result2, ...]
+        if self._same_line(line) and self._check("AS"):
+            self._advance()
+            result_names.append(self._parse_value_ref())
+            while self._same_line(line) and self._check("COMMA"):
+                self._advance()
+                result_names.append(self._parse_value_ref())
+        return RunInstr(script=script, args=args, container=container,
+                        result_names=result_names, line=line)
+
+    def _parse_invoke(self) -> InvokeInstr:
+        """invoke script parametername [with args] [as .result]"""
+        line = self._peek().line
+        self._expect("INVOKE")
+        self._expect("SCRIPT")
+        param_name = self._expect("IDENTIFIER").value
+        args = []
+        result_names = []
+        if self._same_line(line) and self._check("WITH"):
+            self._advance()
+            args.append(self._parse_run_arg(line))
+            while self._same_line(line) and self._check("COMMA"):
+                self._advance()
+                args.append(self._parse_run_arg(line))
+        if self._same_line(line) and self._check("AS"):
+            self._advance()
+            result_names.append(self._parse_value_ref())
+            while self._same_line(line) and self._check("COMMA"):
+                self._advance()
+                result_names.append(self._parse_value_ref())
+        return InvokeInstr(param_name=param_name, args=args,
+                           result_names=result_names, line=line)
 
     def _parse_return(self) -> ReturnInstr:
         line = self._peek().line
         self._expect("RETURN")
-        value = self._parse_value_ref()
-        self._expect("PASS_TO")
-        dest = self._parse_value_ref()
+        value = self._parse_atom()
+        dest = None
+        if self._same_line(line) and self._check("PASS_TO"):
+            self._advance()
+            dest = self._parse_value_ref()
         return ReturnInstr(value=value, dest=dest, line=line)
 
     # ── Type conversion ────────────────────────────────────────────────────────
@@ -703,11 +841,29 @@ class Parser:
     def _parse_if(self) -> Any:
         line = self._peek().line
         self._expect("IF")
+
+        # Determine inline vs block form by scanning ahead for THEN on the same
+        # line *before* parsing the condition.  This must be done up front because
+        # _parse_condition may not consume every token on the line (e.g. when the
+        # condition contains arithmetic in the LHS/RHS), so checking for THEN
+        # after the condition parse can give a false negative and silently
+        # misidentify an inline if as a block if.
+        #
+        # THEN is a reserved keyword that cannot appear as a value or operator, so
+        # any THEN token on the same line as `if` unambiguously signals inline form.
+        is_inline = False
+        for _off in range(len(self.tokens) - self.pos):
+            _t = self._peek(_off)
+            if _t is None or _t.line != line:
+                break
+            if _t.type == "THEN":
+                is_inline = True
+                break
+
         condition = self._parse_condition(line)
 
-        # Inline form: THEN present on same line
-        if self._same_line(line) and self._check("THEN"):
-            self._advance()
+        if is_inline:
+            self._expect("THEN")
             action = self._parse_instruction()
             return IfInline(condition=condition, action=action, line=line)
 
@@ -751,7 +907,10 @@ class Parser:
 
         if t.type == "LIST":
             self._advance()
-            name = self._expect("IDENTIFIER").value
+            if self._check("REFERENCE"):
+                name = self._parse_value_ref()  # variable holding a list
+            else:
+                name = self._expect("IDENTIFIER").value
             file_ref = self._parse_optional_file_ref(line)
             body = self._parse_body(("END_REPEAT",))
             self._expect("END_REPEAT")
@@ -760,7 +919,10 @@ class Parser:
 
         if t.type == "DICTIONARY":
             self._advance()
-            name = self._expect("IDENTIFIER").value
+            if self._check("REFERENCE"):
+                name = self._parse_value_ref()  # variable holding a dict
+            else:
+                name = self._expect("IDENTIFIER").value
             file_ref = self._parse_optional_file_ref(line)
             body = self._parse_body(("END_REPEAT",))
             self._expect("END_REPEAT")
@@ -775,12 +937,28 @@ class Parser:
         line = self._peek().line
         tok = self._advance()  # ATTEMPT or ATTEMPT_ALL
         try_all = tok.type == "ATTEMPT_ALL"
+        # attempt body — stops before the first if fail
         body = self._parse_body(("IF_FAIL",))
-        self._expect("IF_FAIL")
-        fail_body = self._parse_body(("END_FAIL",))
+        typed_handlers = []
+        fail_body = None
+        # Parse zero or more typed handlers, then optional catch-all
+        while self._check("IF_FAIL"):
+            self._advance()  # consume IF_FAIL
+            t = self._peek()
+            if t and t.type == "TEXT_LITERAL":
+                # Typed handler: if fail "category"
+                category = self._advance().value
+                handler_body = self._parse_body(("IF_FAIL", "END_FAIL"))
+                typed_handlers.append((category, handler_body))
+            else:
+                # Bare catch-all handler
+                fail_body = self._parse_body(("END_FAIL",))
+                break  # catch-all must be last
         self._expect("END_FAIL")
         self._expect("END_ATTEMPT")
-        return AttemptBlock(try_all=try_all, body=body, fail_body=fail_body, line=line)
+        return AttemptBlock(try_all=try_all, body=body,
+                            typed_handlers=typed_handlers,
+                            fail_body=fail_body, line=line)
 
     # ── Import / stop / start_at / define ─────────────────────────────────────
 
@@ -1324,29 +1502,123 @@ class Parser:
 
     # ── File ops ───────────────────────────────────────────────────────────────
 
-    def _parse_delete(self) -> DeleteInstr:
+    def _parse_delete(self) -> Any:
         line = self._peek().line
         self._expect("DELETE")
+        # delete path .ref — dynamic file path
+        if self._check("PATH"):
+            self._advance()
+            path_ref = self._parse_value_ref()
+            return DeleteInstr(path=path_ref, path_is_path=True, line=line)
         path = self._parse_value_ref()
-        return DeleteInstr(path=path, line=line)
+        # If the ref contains .vern, it's a static file deletion
+        if ".vern" in path.ref:
+            return DeleteInstr(path=path, line=line)
+        # Otherwise it's HTTP DELETE (url in .valuename)
+        headers_dict = None
+        status = None
+        if self._same_line(line) and self._check("WITH"):
+            self._advance()
+            self._expect("HEADERS")
+            self._expect("DICTIONARY")
+            headers_dict = self._expect("IDENTIFIER").value
+        if self._same_line(line) and self._check("STATUS"):
+            self._advance()
+            status = self._parse_value_ref()
+        return DeleteUrlInstr(url=path, headers_dict=headers_dict,
+                              status=status, line=line)
 
     # ── Networking ─────────────────────────────────────────────────────────────
 
     def _parse_fetch(self) -> FetchInstr:
+        """fetch .url [with headers dictionary name] [as .result [response headers .ref] [status .ref]]"""
         line = self._peek().line
         self._expect("FETCH")
         url = self._parse_atom()
-        self._expect("AS")
-        result = self._parse_value_ref()
-        return FetchInstr(url=url, result=result, line=line)
+        headers_dict = None
+        result = None
+        response_headers = None
+        status = None
+        if self._same_line(line) and self._check("WITH"):
+            self._advance()
+            self._expect("HEADERS")
+            self._expect("DICTIONARY")
+            headers_dict = self._expect("IDENTIFIER").value
+        if self._same_line(line) and self._check("AS"):
+            self._advance()
+            result = self._parse_value_ref()
+        if self._same_line(line) and self._check("RESPONSE_HEADERS"):
+            self._advance()
+            response_headers = self._parse_value_ref()
+        if self._same_line(line) and self._check("STATUS"):
+            self._advance()
+            status = self._parse_value_ref()
+        return FetchInstr(url=url, result=result, headers_dict=headers_dict,
+                          response_headers=response_headers, status=status,
+                          line=line)
 
     def _parse_send(self) -> SendInstr:
+        """send .data to .url [with headers dictionary name] [status .ref]"""
         line = self._peek().line
         self._expect("SEND")
         data = self._parse_atom()
         self._expect("TO")
         url = self._parse_atom()
-        return SendInstr(data=data, url=url, line=line)
+        headers_dict = None
+        status = None
+        if self._same_line(line) and self._check("WITH"):
+            self._advance()
+            self._expect("HEADERS")
+            self._expect("DICTIONARY")
+            headers_dict = self._expect("IDENTIFIER").value
+        if self._same_line(line) and self._check("STATUS"):
+            self._advance()
+            status = self._parse_value_ref()
+        return SendInstr(data=data, url=url, headers_dict=headers_dict,
+                         status=status, line=line)
+
+    def _parse_update(self) -> UpdateInstr:
+        """update .data to .url [with headers dictionary name] [status .ref]"""
+        line = self._peek().line
+        self._expect("UPDATE")
+        data = self._parse_atom()
+        self._expect("TO")
+        url = self._parse_atom()
+        headers_dict = None
+        status = None
+        if self._same_line(line) and self._check("WITH"):
+            self._advance()
+            self._expect("HEADERS")
+            self._expect("DICTIONARY")
+            headers_dict = self._expect("IDENTIFIER").value
+        if self._same_line(line) and self._check("STATUS"):
+            self._advance()
+            status = self._parse_value_ref()
+        return UpdateInstr(data=data, url=url, headers_dict=headers_dict,
+                           status=status, line=line)
+
+    def _parse_parse(self) -> ParseInstr:
+        """parse json/csv/xml/ini .valuename as list/dictionary resultname"""
+        line = self._peek().line
+        self._expect("PARSE")
+        fmt_tok = self._expect("JSON", "CSV", "XML", "INI")
+        fmt = fmt_tok.value
+        source = self._parse_value_ref()
+        self._expect("AS")
+        rt_tok = self._expect("LIST", "DICTIONARY")
+        result_type = rt_tok.value  # "list" or "dictionary"
+        result_name = self._expect("IDENTIFIER").value
+        return ParseInstr(format=fmt, source=source, result_type=result_type,
+                          result_name=result_name, line=line)
+
+    def _parse_inspect(self) -> InspectInstr:
+        """inspect json/csv/xml/ini .valuename"""
+        line = self._peek().line
+        self._expect("INSPECT")
+        fmt_tok = self._expect("JSON", "CSV", "XML", "INI")
+        fmt = fmt_tok.value
+        source = self._parse_value_ref()
+        return InspectInstr(format=fmt, source=source, line=line)
 
 
 # ── Public API ─────────────────────────────────────────────────────────────────

@@ -1,0 +1,19 @@
+import .datemath.vern.lib.folder
+
+set .future to 2026-12-31
+set .past to 2025-01-01
+
+run .daysfrom.script with .future as .days
+show .days
+
+run .ispast.script with .past as .expired
+show .expired
+
+run .ispast.script with .future as .notexpired
+show .notexpired
+
+set .start to 2026-01-01
+set .end to 2026-03-31
+run .daysbetween.script with .start, .end as .diff
+show .diff
+

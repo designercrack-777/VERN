@@ -1,0 +1,17 @@
+import .dictsearch.vern.lib.folder
+
+dictionary student
+  "name": "alice"
+  "grade": "A"
+  "score": "95"
+end dictionary
+
+run .searchdict.script with dictionary student, "grade" as .found
+show .found
+
+run .haskey.script with dictionary student, "score" as .exists
+show .exists
+
+run .haskey.script with dictionary student, "age" as .missing
+show .missing
+

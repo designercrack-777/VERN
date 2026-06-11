@@ -1,0 +1,65 @@
+// dictsearch.vern
+// VERN Standard Library — Deep Dictionary Search
+// The VERN Project — 2026
+
+script .searchdict takes dictionary sourcedict, .searchkey
+    set .result to ""
+    set .found to false
+    repeat through dictionary sourcedict
+        if current key = .searchkey
+            set .result to current value
+            set .found to true
+            exit loop
+        end if
+        if .found = false
+            type of current value as .valuetype
+            if .valuetype = "dictionary"
+                set .inner to current value
+                repeat through dictionary .inner
+                    if current key = .searchkey
+                        set .result to current value
+                        set .found to true
+                        exit loop
+                    end if
+                    if .found = false
+                        type of current value as .innertype
+                        if .innertype = "dictionary"
+                            set .deeper to current value
+                            repeat through dictionary .deeper
+                                if current key = .searchkey
+                                    set .result to current value
+                                    set .found to true
+                                    exit loop
+                                end if
+                                if .found = false
+                                    type of current value as .deepertype
+                                    if .deepertype = "dictionary"
+                                        set .deepest to current value
+                                        repeat through dictionary .deepest
+                                            if current key = .searchkey
+                                                set .result to current value
+                                                set .found to true
+                                                exit loop
+                                            end if
+                                        end repeat
+                                    end if
+                                end if
+                            end repeat
+                        end if
+                    end if
+                end repeat
+            end if
+        end if
+    end repeat
+    return .result
+end script
+
+script .haskey takes dictionary sourcedict, .searchkey
+    set .result to false
+    run .searchdict.script with dictionary sourcedict, .searchkey as .found
+    type of .found as .foundtype
+    if .foundtype = "text"
+        if .found != "" then set .result to true
+    end if
+    return .result
+end script

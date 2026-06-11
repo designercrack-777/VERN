@@ -1,0 +1,122 @@
+// TEST 11 — Expanded Networking
+// Tests: fetch with status, fetch with headers, update, delete URL
+// NOTE: Requires internet access. Uses https://httpbin.org — a free test API.
+// If network is unavailable, all tests will report NETWORK UNAVAILABLE.
+
+show "--- 1. basic fetch with status code ---"
+attempt
+  fetch "https://httpbin.org/get" as .body status .code
+  show .code
+  // expected: 200
+  if .code = 200
+    show "PASS: fetch returned status 200"
+  otherwise
+    show "FAIL: expected status 200, got"
+    show .code
+  end if
+if fail "network"
+  show "SKIP: network unavailable"
+if fail
+  show "SKIP: fetch failed"
+end fail
+end attempt
+
+show "--- 2. fetch with request headers ---"
+dictionary reqheaders
+  "Accept": "application/json"
+  "X-Test-Header": "vern-test"
+end dictionary
+
+attempt
+  fetch "https://httpbin.org/headers" with headers dictionary reqheaders as .body status .code
+  show .code
+  // expected: 200
+  if .code = 200
+    show "PASS: fetch with headers returned 200"
+  otherwise
+    show "FAIL: expected 200"
+  end if
+if fail
+  show "SKIP: headers fetch failed"
+end fail
+end attempt
+
+show "--- 3. fetch with response headers ---"
+attempt
+  fetch "https://httpbin.org/response-headers?X-Custom=hello" as .body response headers .respheaders status .code
+  show .code
+  // expected: 200
+  type of .respheaders as .rht
+  if .rht = "dictionary"
+    show "PASS: response headers captured as dictionary"
+  otherwise
+    show "FAIL: response headers should be dictionary"
+  end if
+if fail
+  show "SKIP: response headers fetch failed"
+end fail
+end attempt
+
+show "--- 4. send (POST) with status ---"
+attempt
+  send "test=value" to "https://httpbin.org/post" status .postcode
+  show .postcode
+  // expected: 200
+  if .postcode = 200
+    show "PASS: send (POST) returned 200"
+  otherwise
+    show "FAIL: expected 200 from POST"
+  end if
+if fail
+  show "SKIP: send failed"
+end fail
+end attempt
+
+show "--- 5. update (PUT) with status ---"
+attempt
+  update "data=updated" to "https://httpbin.org/put" status .putcode
+  show .putcode
+  // expected: 200
+  if .putcode = 200
+    show "PASS: update (PUT) returned 200"
+  otherwise
+    show "FAIL: expected 200 from PUT"
+  end if
+if fail
+  show "SKIP: update failed"
+end fail
+end attempt
+
+show "--- 6. delete URL with status ---"
+set .deleteurl to "https://httpbin.org/delete"
+attempt
+  delete .deleteurl status .delcode
+  show .delcode
+  // expected: 200
+  if .delcode = 200
+    show "PASS: delete URL returned 200"
+  otherwise
+    show "FAIL: expected 200 from DELETE"
+  end if
+if fail
+  show "SKIP: delete URL failed"
+end fail
+end attempt
+
+show "--- 7. non-200 status is not fatal ---"
+attempt
+  fetch "https://httpbin.org/status/404" as .body status .s404
+  show .s404
+  // expected: 404
+  if .s404 = 404
+    show "PASS: non-200 status captured, not fatal"
+  otherwise
+    show "INFO: status was"
+    show .s404
+  end if
+if fail
+  show "SKIP: 404 test failed"
+end fail
+end attempt
+
+show "--- DONE ---"

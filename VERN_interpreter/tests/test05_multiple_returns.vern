@@ -1,0 +1,110 @@
+// TEST 05 — Multiple Return Values
+// Tests: two returns, three returns, fewer names than returns (non-fatal)
+
+show "--- 1. two return values ---"
+script .divmod takes .a, .b
+  set .q to .a / .b
+  floor .q as .quotient
+  set .product to .quotient * .b
+  set .rem to .a - .product
+  return .quotient
+  return .rem
+end script
+
+run .divmod.script with 17, 5 as .q, .r
+show .q
+// expected: 3
+show .r
+// expected: 2
+if .q = 3
+  show "PASS: first return value correct"
+otherwise
+  show "FAIL: expected quotient 3, got"
+  show .q
+end if
+if .r = 2
+  show "PASS: second return value correct"
+otherwise
+  show "FAIL: expected remainder 2, got"
+  show .r
+end if
+
+show "--- 2. three return values ---"
+script .stats takes .x, .y, .z
+  set .total to .x + .y + .z
+  set .avg to .total / 3
+  set .maxval to .x
+  if .y is greater than .maxval then set .maxval to .y
+  if .z is greater than .maxval then set .maxval to .z
+  return .total
+  return .avg
+  return .maxval
+end script
+
+run .stats.script with 10, 20, 30 as .total, .avg, .max
+show .total
+// expected: 60
+show .avg
+// expected: 20
+show .max
+// expected: 30
+if .total = 60
+  show "PASS: total correct"
+otherwise
+  show "FAIL: total expected 60"
+end if
+if .avg = 20
+  show "PASS: average correct"
+otherwise
+  show "FAIL: average expected 20"
+end if
+if .max = 30
+  show "PASS: max correct"
+otherwise
+  show "FAIL: max expected 30"
+end if
+
+show "--- 3. fewer names than returns (non-fatal, extras discarded) ---"
+script .triple takes .x
+  set .a to .x
+  set .b to .x * 2
+  set .c to .x * 3
+  return .a
+  return .b
+  return .c
+end script
+
+run .triple.script with 7 as .first, .second
+show .first
+// expected: 7
+show .second
+// expected: 14
+if .first = 7
+  show "PASS: first value with fewer names"
+otherwise
+  show "FAIL: expected 7"
+end if
+if .second = 14
+  show "PASS: second value with fewer names"
+otherwise
+  show "FAIL: expected 14"
+end if
+
+show "--- 4. returns called multiple times (different callers) ---"
+run .divmod.script with 100, 7 as .q2, .r2
+show .q2
+// expected: 14
+show .r2
+// expected: 2
+if .q2 = 14
+  show "PASS: second call quotient"
+otherwise
+  show "FAIL: expected 14"
+end if
+if .r2 = 2
+  show "PASS: second call remainder"
+otherwise
+  show "FAIL: expected 2"
+end if
+
+show "--- DONE ---"

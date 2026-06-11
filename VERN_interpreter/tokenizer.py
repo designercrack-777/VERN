@@ -84,6 +84,12 @@ COMPOUND_KEYWORDS: List[Tuple[str, str]] = [
     ("if fail",                     "IF_FAIL"),
     ("attempt all",                 "ATTEMPT_ALL"),
 
+    # Typed failure info
+    ("fail type",                   "FAIL_TYPE"),
+
+    # Response headers (networking)
+    ("response headers",            "RESPONSE_HEADERS"),
+
     # Entry point
     ("start at",                    "START_AT"),
 
@@ -149,6 +155,15 @@ SINGLE_KEYWORDS: dict = {w: w.upper() for w in [
     "fetch", "send",
     "decimals", "thousands", "padded",
     "end",
+    # Phase 1 additions
+    "none",
+    "invoke",
+    # Phase 2 additions
+    "path",
+    "update",
+    "headers", "status", "response",
+    "parse", "inspect",
+    "json", "csv", "xml", "ini",
     # Implicit components of compound comparison operators — reserved but
     # only valid inside their compounds; listed here so they tokenize
     # as keywords rather than identifiers.
@@ -159,17 +174,18 @@ SINGLE_KEYWORDS: dict = {w: w.upper() for w in [
 
 _RE_WS       = re.compile(r'\s+')
 # Reference chain: .name or .name.other.vern etc.
-_RE_REF      = re.compile(r'\.[a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)*')
-# Container tag: #name
-_RE_CTAG     = re.compile(r'#[a-zA-Z][a-zA-Z0-9]*')
+# Each segment: letter then letters/digits/underscores (underscore-leading invalid).
+_RE_REF      = re.compile(r'\.[a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z][a-zA-Z0-9_]*)*')
+# Container tag: #name  (same identifier rules)
+_RE_CTAG     = re.compile(r'#[a-zA-Z][a-zA-Z0-9_]*')
 # Date: YYYY-MM-DD  (requires a non-digit after to avoid matching longer seqs)
 _RE_DATE     = re.compile(r'\d{4}-\d{2}-\d{2}(?!\d)')
 # Time: HH:MI:SS
 _RE_TIME     = re.compile(r'\d{2}:\d{2}:\d{2}(?!\d)')
 # Number: integer or decimal
 _RE_NUM      = re.compile(r'\d+(?:\.\d+)?')
-# A bare word
-_RE_WORD     = re.compile(r'[a-zA-Z][a-zA-Z0-9]*')
+# A bare word: letter then letters/digits/underscores (underscore-leading invalid).
+_RE_WORD     = re.compile(r'[a-zA-Z][a-zA-Z0-9_]*')
 
 # Symbol tokens — longer symbols tried before shorter
 _SYMBOLS: List[Tuple[str, str]] = [

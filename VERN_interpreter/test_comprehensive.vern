@@ -1,0 +1,75 @@
+// Comprehensive Phase 1-3 test
+
+// 1. None type
+set .n to none
+show .n
+type of .n as .nt
+show .nt
+if .n = none then show "none equals none"
+
+// 2. Form 2 single return
+script .square takes .x
+  set .r to .x * .x
+  return .r
+end script
+run .square.script with 6 as .sq
+show .sq
+
+// 3. Multiple returns
+script .minmax takes .a, .b
+  set .lo to .a
+  set .hi to .b
+  if .a is greater than .b
+    set .lo to .b
+    set .hi to .a
+  end if
+  return .lo
+  return .hi
+end script
+run .minmax.script with 9, 3 as .small, .big
+show .small
+show .big
+
+// 4. List params
+list nums
+  10
+  20
+  30
+end list
+script .sumlist takes list mylist
+  set .total to 0
+  repeat through list mylist
+    set .total to .total + current item
+  end repeat
+  return .total
+end script
+run .sumlist.script with list nums as .sum
+show .sum
+
+// 5. First-class function
+script .applytwice takes script fn, .val
+  invoke script fn with .val as .r1
+  invoke script fn with .r1 as .r2
+  return .r2
+end script
+run .applytwice.script with script .square.script, 2 as .result
+show .result
+
+// 6. Typed exception handler
+attempt
+  set .bad to 1 / 0
+if fail "value"
+  show "division error caught correctly"
+end fail
+end attempt
+
+// 7. None in list
+list mixed
+  "first"
+  none
+  "last"
+end list
+repeat through list mixed
+  show current item
+end repeat
+

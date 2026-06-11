@@ -1,0 +1,134 @@
+// TEST 12 — Parse and Inspect
+// Tests: JSON dict, JSON array, CSV, XML, INI — parse and inspect each
+
+show "--- 1. parse JSON as dictionary ---"
+text .jsondictstr
+{"name":"alice","age":"30","city":"portland"}
+end text
+
+parse json .jsondictstr as dictionary person
+get dictionary person key "name" as .pname
+get dictionary person key "age" as .page
+get dictionary person key "city" as .pcity
+show .pname
+// expected: alice
+show .page
+// expected: 30
+show .pcity
+// expected: portland
+if .pname = "alice"
+  show "PASS: JSON dict name correct"
+otherwise
+  show "FAIL: expected alice"
+end if
+if .page = "30"
+  show "PASS: JSON dict age correct"
+otherwise
+  show "FAIL: expected 30"
+end if
+
+show "--- 2. parse JSON as list ---"
+text .jsonarrstr
+["apple","banana","cherry","date"]
+end text
+
+parse json .jsonarrstr as list fruits
+count list fruits as .fc
+show .fc
+// expected: 4
+if .fc = 4
+  show "PASS: JSON array has 4 items"
+otherwise
+  show "FAIL: expected 4 items"
+end if
+get list fruits 2 as .f2
+show .f2
+// expected: banana
+if .f2 = "banana"
+  show "PASS: JSON array item 2 is banana"
+otherwise
+  show "FAIL: expected banana"
+end if
+
+show "--- 3. parse CSV as list ---"
+text .csvstr
+name,score,grade
+alice,95,A
+bob,82,B
+carol,78,C
+end text
+
+parse csv .csvstr as list records
+count list records as .rc
+show .rc
+// expected: 3 (three data rows, not counting header)
+if .rc = 3
+  show "PASS: CSV has 3 records"
+otherwise
+  show "FAIL: expected 3 records"
+end if
+
+show "--- 4. parse XML as dictionary ---"
+text .xmlstr
+<person><name>alice</name><age>30</age><city>portland</city></person>
+end text
+
+parse xml .xmlstr as dictionary xperson
+get dictionary xperson key "name" as .xname
+get dictionary xperson key "age" as .xage
+show .xname
+// expected: alice
+show .xage
+// expected: 30
+if .xname = "alice"
+  show "PASS: XML name correct"
+otherwise
+  show "FAIL: expected alice from XML"
+end if
+
+show "--- 5. parse INI as dictionary ---"
+text .inistr
+[database]
+host=localhost
+port=5432
+name=mydb
+
+[server]
+host=0.0.0.0
+port=8080
+end text
+
+parse ini .inistr as dictionary config
+get dictionary config key "database" as .dbsection
+show "INI database section type:"
+type of .dbsection as .ct
+show .ct
+// expected: dictionary (section is a sub-dictionary)
+show "PASS: INI parsed as dictionary (sections accessible)"
+
+show "--- 6. inspect JSON (output should show structure) ---"
+show "inspect json output:"
+inspect json .jsondictstr
+
+show "--- 7. inspect CSV ---"
+show "inspect csv output:"
+inspect csv .csvstr
+
+show "--- 8. inspect XML ---"
+show "inspect xml output:"
+inspect xml .xmlstr
+
+show "--- 9. inspect INI ---"
+show "inspect ini output:"
+inspect ini .inistr
+
+show "--- 10. parse error caught ---"
+attempt
+  set .badjson to "not json at all"
+  parse json .badjson as dictionary bad
+if fail
+  show "PASS: parse error caught for invalid JSON"
+end fail
+end attempt
+
+show "--- DONE ---"

@@ -1,0 +1,77 @@
+// TEST 01 — None Type
+// Tests: set, display, type of, comparison, fatal on arithmetic
+
+show "--- 1. set and display ---"
+set .a to none
+show .a
+// expected: none
+
+show "--- 2. type of none ---"
+type of .a as .t
+show .t
+// expected: none
+
+show "--- 3. equality comparison ---"
+if .a = none
+  show "PASS: none equals none"
+otherwise
+  show "FAIL: none should equal none"
+end if
+
+show "--- 4. inequality comparison ---"
+if .a != "hello"
+  show "PASS: none does not equal text"
+otherwise
+  show "FAIL: none should not equal text"
+end if
+
+show "--- 5. none in list ---"
+list mixed
+  "first"
+  none
+  "third"
+end list
+repeat through list mixed
+  show current item
+end repeat
+// expected: first / none / third
+
+show "--- 6. none in dictionary ---"
+dictionary data
+  "key1": "value"
+  "key2": none
+end dictionary
+get dictionary data key "key2" as .val
+show .val
+// expected: none
+type of .val as .vt
+show .vt
+// expected: none
+
+show "--- 7. none comparison cross-type returns false ---"
+set .b to none
+set .c to "something"
+if .b = .c
+  show "FAIL: none should not equal text"
+otherwise
+  show "PASS: none does not equal text value"
+end if
+
+show "--- 8. fatal on arithmetic (caught) ---"
+set .n to none
+attempt
+  set .result to .n + 1
+if fail
+  show "PASS: arithmetic on none is fatal (caught)"
+end fail
+end attempt
+
+show "--- 9. fatal on convert (caught) ---"
+attempt
+  convert .n to number as .num
+if fail
+  show "PASS: convert none to number is fatal (caught)"
+end fail
+end attempt
+
+show "--- DONE ---"

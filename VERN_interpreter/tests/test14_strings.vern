@@ -1,0 +1,114 @@
+// TEST 14 — strings.vern — pad script
+// Tests: left align, right align, exact width, trim when too long,
+//        number and date input auto-converted
+
+import .strings.vern.lib.folder
+
+show "--- 1. left alignment ---"
+run .pad.script with "hello", 10, "left" as .r
+show .r
+length of .r as .l
+show .l
+// expected length: 10
+if .l = 10
+  show "PASS: left pad length 10"
+otherwise
+  show "FAIL: expected length 10"
+end if
+// content check: starts with hello, padded on right
+extract from .r beginning 1 finishing 5 as .prefix
+if .prefix = "hello"
+  show "PASS: left align text at start"
+otherwise
+  show "FAIL: text not at start"
+end if
+
+show "--- 2. right alignment ---"
+run .pad.script with "hi", 8, "right" as .r2
+show .r2
+length of .r2 as .l2
+if .l2 = 8
+  show "PASS: right pad length 8"
+otherwise
+  show "FAIL: expected length 8"
+end if
+extract from .r2 beginning 7 finishing 8 as .suffix
+if .suffix = "hi"
+  show "PASS: right align text at end"
+otherwise
+  show "FAIL: text not at right end"
+end if
+
+show "--- 3. exact width — no padding needed ---"
+run .pad.script with "exact", 5, "left" as .r3
+show .r3
+length of .r3 as .l3
+if .l3 = 5
+  show "PASS: exact width unchanged"
+otherwise
+  show "FAIL: expected length 5"
+end if
+if .r3 = "exact"
+  show "PASS: exact value preserved"
+otherwise
+  show "FAIL: exact value changed"
+end if
+
+show "--- 4. trim when too long ---"
+run .pad.script with "toolongtext", 4, "left" as .r4
+show .r4
+length of .r4 as .l4
+if .l4 = 4
+  show "PASS: too-long text trimmed to width"
+otherwise
+  show "FAIL: expected length 4 after trim"
+end if
+if .r4 = "tool"
+  show "PASS: trim takes first 4 characters"
+otherwise
+  show "FAIL: trim value mismatch"
+end if
+
+show "--- 5. number auto-converted ---"
+run .pad.script with 42, 6, "right" as .r5
+show .r5
+length of .r5 as .l5
+if .l5 = 6
+  show "PASS: number padded to width 6"
+otherwise
+  show "FAIL: expected length 6"
+end if
+extract from .r5 beginning 5 finishing 6 as .numsuffix
+if .numsuffix = "42"
+  show "PASS: number right-aligned correctly"
+otherwise
+  show "FAIL: number not at right end"
+end if
+
+show "--- 6. date auto-converted ---"
+run .pad.script with 2026-06-09, 12, "left" as .r6
+show .r6
+length of .r6 as .l6
+if .l6 = 12
+  show "PASS: date padded to width 12"
+otherwise
+  show "FAIL: expected length 12"
+end if
+extract from .r6 beginning 1 finishing 10 as .dateval
+if .dateval = "2026-06-09"
+  show "PASS: date at start of left-padded field"
+otherwise
+  show "FAIL: date not at start"
+end if
+
+show "--- 7. single character ---"
+run .pad.script with "x", 5, "left" as .r7
+show .r7
+length of .r7 as .l7
+if .l7 = 5
+  show "PASS: single char padded to 5"
+otherwise
+  show "FAIL: expected 5"
+end if
+
+show "--- DONE ---"

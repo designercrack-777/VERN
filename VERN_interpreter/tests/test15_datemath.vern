@@ -1,0 +1,86 @@
+// TEST 15 — datemath.vern
+// Tests: daysfrom, ispast, daysbetween
+
+import .datemath.vern.lib.folder
+
+show "--- 1. daysfrom — future date ---"
+// Use a far-future date that will definitely be in the future
+set .future to 2099-12-31
+run .daysfrom.script with .future as .days
+show .days
+// expected: a large positive number
+if .days is greater than 0
+  show "PASS: days to far-future date is positive"
+otherwise
+  show "FAIL: expected positive days to future"
+end if
+
+show "--- 2. daysfrom — recent past date ---"
+set .past to 2020-01-01
+run .daysfrom.script with .past as .pastdays
+show .pastdays
+// expected: positive (daysfrom returns absolute diff)
+// Note: daysfrom uses difference between which returns absolute value
+if .pastdays is greater than 0
+  show "PASS: days from past date is positive"
+otherwise
+  show "FAIL: expected positive days for past date"
+end if
+
+show "--- 3. ispast — past date ---"
+set .longago to 2000-06-15
+run .ispast.script with .longago as .isexpired
+show .isexpired
+// expected: true
+if .isexpired = true
+  show "PASS: year 2000 date is past"
+otherwise
+  show "FAIL: year 2000 should be past"
+end if
+
+show "--- 4. ispast — future date ---"
+set .farfuture to 2099-01-01
+run .ispast.script with .farfuture as .notpast
+show .notpast
+// expected: false
+if .notpast = false
+  show "PASS: year 2099 date is not past"
+otherwise
+  show "FAIL: year 2099 should not be past"
+end if
+
+show "--- 5. daysbetween — known span ---"
+set .jan1 to 2026-01-01
+set .mar31 to 2026-03-31
+run .daysbetween.script with .jan1, .mar31 as .span
+show .span
+// expected: 89 (Jan has 31, Feb has 28 in 2026, Mar has 31 days to day 31 = 89 total)
+if .span = 89
+  show "PASS: daysbetween Jan 1 to Mar 31 is 89"
+otherwise
+  show "FAIL: expected 89"
+end if
+
+show "--- 6. daysbetween — reversed order still positive ---"
+run .daysbetween.script with .mar31, .jan1 as .span2
+show .span2
+// expected: 89 (absolute value)
+if .span2 = 89
+  show "PASS: daysbetween reversed is also 89"
+otherwise
+  show "FAIL: expected 89 for reversed order"
+end if
+
+show "--- 7. daysbetween — one year ---"
+set .y2026start to 2026-01-01
+set .y2027start to 2027-01-01
+run .daysbetween.script with .y2026start, .y2027start as .yeardays
+show .yeardays
+// expected: 365 (2026 is not a leap year)
+if .yeardays = 365
+  show "PASS: one non-leap year is 365 days"
+otherwise
+  show "FAIL: expected 365"
+end if
+
+show "--- DONE ---"

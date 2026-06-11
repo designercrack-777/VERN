@@ -1,0 +1,31 @@
+text .jsonsrc
+{"name":"alice","age":"30"}
+end text
+
+parse json .jsonsrc as dictionary person
+get dictionary person key "name" as .pname
+get dictionary person key "age" as .page
+show .pname
+show .page
+
+inspect json .jsonsrc
+
+text .csvsrc
+name,score
+alice,95
+bob,87
+end text
+
+parse csv .csvsrc as list rows
+count list rows as .rowcount
+show .rowcount
+
+text .jsarr
+["apple","banana","cherry"]
+end text
+
+parse json .jsarr as list fruits
+repeat through list fruits
+  show current item
+end repeat
+

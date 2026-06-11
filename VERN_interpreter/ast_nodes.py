@@ -40,6 +40,11 @@ class BoolLit:
     line: int = 0
 
 @dataclass
+class NoneLit:
+    """The none literal value."""
+    line: int = 0
+
+@dataclass
 class Constant:
     name: str    # "pi", "e", "tau", "infinity"
     line: int = 0
@@ -65,6 +70,11 @@ class FailReason:
     line: int = 0
 
 @dataclass
+class FailType:
+    """fail type — implicit read-only keyword inside if fail blocks"""
+    line: int = 0
+
+@dataclass
 class BinOp:
     left: Any
     op: str      # "+", "-", "*", "/", "power", "root", "remainder"
@@ -73,8 +83,8 @@ class BinOp:
 
 # Expr union (for type hints)
 Expr = Union[
-    ValueRef, TextLit, NumberLit, DateLit, TimeLit, BoolLit,
-    Constant, LoopVar, CurrentItem, CurrentKey, CurrentValue, FailReason, BinOp
+    ValueRef, TextLit, NumberLit, DateLit, TimeLit, BoolLit, NoneLit,
+    Constant, LoopVar, CurrentItem, CurrentKey, CurrentValue, FailReason, FailType, BinOp
 ]
 
 
@@ -135,7 +145,7 @@ class OrCond:
 
 Condition = Union[
     Comparison, MemberCheck, ExistCheck, StartsWithCond, EndsWithCond,
-    NotCond, AndCond, OrCond, BoolLit, ValueRef
+    NotCond, AndCond, OrCond, BoolLit, ValueRef, 'PathExistCheck'
 ]
 
 
@@ -159,33 +169,45 @@ class AskInstr:
 
 @dataclass
 class ReadInstr:
-    targets: List[ValueRef]
-    source: ValueRef
+    targets: List['ValueRef']
+    source: Any              # ValueRef (literal) or expression (when path=True)
+    source_is_path: bool = False   # True when "read ... from path .expr"
     line: int = 0
 
 @dataclass
 class WriteInstr:
     values: List[Any]
-    dest: ValueRef
+    dest: Any                # ValueRef (literal) or expression (when path=True)
+    dest_is_path: bool = False     # True when "write ... to path .expr"
     line: int = 0
 
 @dataclass
 class AppendInstr:
     values: List[Any]
-    dest: ValueRef
+    dest: Any                # ValueRef (literal) or expression (when path=True)
+    dest_is_path: bool = False     # True when "append ... to path .expr"
     line: int = 0
 
 @dataclass
 class RunInstr:
     script: ValueRef
-    args: List[Any]           # positional args after "with"
-    container: Optional[str]  # #tag name
+    args: List[Any]                        # positional args after "with"
+    container: Optional[str]              # #tag name
+    result_names: List[Any] = field(default_factory=list)  # from "as .r1, .r2" (Form 2)
     line: int = 0
 
 @dataclass
 class ReturnInstr:
-    value: ValueRef
-    dest: ValueRef
+    value: Any                            # expression to return
+    dest: Optional['ValueRef'] = None    # Form 1: pass to dest; Form 2: None
+    line: int = 0
+
+@dataclass
+class InvokeInstr:
+    """invoke script paramname with args as results"""
+    param_name: str           # the script-parameter name (no period prefix)
+    args: List[Any] = field(default_factory=list)
+    result_names: List[Any] = field(default_factory=list)
     line: int = 0
 
 @dataclass
@@ -259,14 +281,14 @@ class RepeatTimesBlock:
 
 @dataclass
 class RepeatThroughListBlock:
-    list_name: str
+    list_name: Any    # str (bare name) or ValueRef (variable holding a list)
     file_ref: Optional[Any] = None
     body: List[Any] = field(default_factory=list)
     line: int = 0
 
 @dataclass
 class RepeatThroughDictBlock:
-    dict_name: str
+    dict_name: Any    # str (bare name) or ValueRef (variable holding a dict)
     file_ref: Optional[Any] = None
     body: List[Any] = field(default_factory=list)
     line: int = 0
@@ -275,7 +297,9 @@ class RepeatThroughDictBlock:
 class AttemptBlock:
     try_all: bool
     body: List[Any] = field(default_factory=list)
-    fail_body: List[Any] = field(default_factory=list)
+    # typed_handlers: list of (category_str, body_list) — "type","file","network","value"
+    typed_handlers: List[Any] = field(default_factory=list)
+    fail_body: Optional[List[Any]] = None   # catch-all; None = no catch-all handler
     line: int = 0
 
 
@@ -620,7 +644,8 @@ class FormatNumberInstr:
 
 @dataclass
 class DeleteInstr:
-    path: ValueRef
+    path: Any                  # ValueRef (literal) or expression (when path=True)
+    path_is_path: bool = False # True when "delete path .expr"
     line: int = 0
 
 @dataclass
@@ -635,13 +660,63 @@ class GetFilesInstr:
 @dataclass
 class FetchInstr:
     url: Any
-    result: ValueRef
+    result: Optional['ValueRef']                  # as .result
+    headers_dict: Optional[str] = None           # with headers dictionary name
+    response_headers: Optional['ValueRef'] = None # response headers .name
+    status: Optional['ValueRef'] = None          # status .code
     line: int = 0
 
 @dataclass
 class SendInstr:
     data: Any
     url: Any
+    headers_dict: Optional[str] = None
+    status: Optional['ValueRef'] = None
+    line: int = 0
+
+@dataclass
+class UpdateInstr:
+    """HTTP PUT — update .data to .url"""
+    data: Any
+    url: Any
+    headers_dict: Optional[str] = None
+    status: Optional['ValueRef'] = None
+    line: int = 0
+
+@dataclass
+class DeleteUrlInstr:
+    """HTTP DELETE — delete .url (no .vern in chain)"""
+    url: Any
+    headers_dict: Optional[str] = None
+    status: Optional['ValueRef'] = None
+    line: int = 0
+
+
+# ── Parse / inspect ────────────────────────────────────────────────────────────
+
+@dataclass
+class ParseInstr:
+    """parse json/csv/xml/ini .value as list/dictionary name"""
+    format: str        # "json", "csv", "xml", "ini"
+    source: Any        # expression (text value)
+    result_type: str   # "list" or "dictionary"
+    result_name: str   # the bare name of the result list or dict
+    line: int = 0
+
+@dataclass
+class InspectInstr:
+    """inspect json/csv/xml/ini .value — prints structure, no result"""
+    format: str
+    source: Any
+    line: int = 0
+
+
+# ── Dynamic file references ────────────────────────────────────────────────────
+
+@dataclass
+class PathExistCheck:
+    """if path .filename exist — condition node"""
+    ref: Any     # expression holding path string
     line: int = 0
 
 
@@ -649,8 +724,8 @@ class SendInstr:
 
 @dataclass
 class ScriptDef:
-    name: ValueRef
-    params: List[ValueRef] = field(default_factory=list)
+    name: 'ValueRef'
+    params: List[Any] = field(default_factory=list)   # ValueRef | ("list",name) | ("dict",name) | ("script",name)
     container: Optional[str] = None
     body: List[Any] = field(default_factory=list)
     line: int = 0

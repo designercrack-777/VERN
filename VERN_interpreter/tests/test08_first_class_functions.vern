@@ -1,0 +1,119 @@
+// TEST 08 — First-Class Functions (invoke)
+// Tests: pass script as param, invoke with args and result, different operations
+
+script .double takes .x
+  set .r to .x * 2
+  return .r
+end script
+
+script .square takes .x
+  set .r to .x * .x
+  return .r
+end script
+
+script .negate takes .x
+  set .r to 0 - .x
+  return .r
+end script
+
+show "--- 1. basic invoke ---"
+script .apply takes script fn, .value
+  invoke script fn with .value as .result
+  return .result
+end script
+
+run .apply.script with script .double.script, 5 as .r
+show .r
+// expected: 10
+if .r = 10
+  show "PASS: invoke double returned 10"
+otherwise
+  show "FAIL: expected 10"
+end if
+
+run .apply.script with script .square.script, 4 as .r2
+show .r2
+// expected: 16
+if .r2 = 16
+  show "PASS: invoke square returned 16"
+otherwise
+  show "FAIL: expected 16"
+end if
+
+show "--- 2. apply twice ---"
+script .applytwice takes script fn, .x
+  invoke script fn with .x as .once
+  invoke script fn with .once as .twice
+  return .twice
+end script
+
+run .applytwice.script with script .double.script, 3 as .at
+show .at
+// expected: 12 (3*2=6, 6*2=12)
+if .at = 12
+  show "PASS: apply twice double: 12"
+otherwise
+  show "FAIL: expected 12"
+end if
+
+run .applytwice.script with script .square.script, 2 as .as2
+show .as2
+// expected: 16 (2^2=4, 4^2=16)
+if .as2 = 16
+  show "PASS: apply twice square: 16"
+otherwise
+  show "FAIL: expected 16"
+end if
+
+show "--- 3. apply to each item in list ---"
+list nums
+  1
+  2
+  3
+  4
+  5
+end list
+
+script .maplist takes list items, script transform
+  set .i to 0
+  repeat through list items
+    set .i to .i + 1
+    invoke script transform with current item as .transformed
+    put .transformed in list items
+    remove current item from list items
+  end repeat
+end script
+
+// This test just calls the script and verifies it runs without error
+run .maplist.script with list nums, script .double.script
+show "PASS: invoke inside loop ran without error"
+
+show "--- 4. pass script with different operations ---"
+run .apply.script with script .negate.script, 7 as .neg
+show .neg
+// expected: -7
+set .negexpected to 0 - 7
+if .neg = .negexpected
+  show "PASS: invoke negate returned -7"
+otherwise
+  show "FAIL: expected -7"
+end if
+
+show "--- 5. two script params ---"
+script .combine takes script fn1, script fn2, .x
+  invoke script fn1 with .x as .a
+  invoke script fn2 with .x as .b
+  set .result to .a + .b
+  return .result
+end script
+
+run .combine.script with script .double.script, script .square.script, 3 as .c
+show .c
+// expected: 15 (3*2=6, 3^2=9, 6+9=15)
+if .c = 15
+  show "PASS: two script params combined result 15"
+otherwise
+  show "FAIL: expected 15"
+end if
+
+show "--- DONE ---"

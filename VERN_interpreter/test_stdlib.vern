@@ -1,0 +1,28 @@
+// Test stdlib
+
+import .strings.vern.lib.folder
+import .listsearch.vern.lib.folder
+
+// Test pad
+run .pad.script with "hello", 10, "left" as .padded
+show .padded
+run .pad.script with "hello", 10, "right" as .padded2
+show .padded2
+
+// Test listsearch
+list names
+  "alice"
+  "bob"
+  "carol"
+  "diana"
+end list
+
+run .finditem.script with list names, "carol" as .pos
+show .pos
+
+run .hasitem.script with list names, "diana" as .found
+show .found
+
+run .hasitem.script with list names, "zara" as .notfound
+show .notfound
+

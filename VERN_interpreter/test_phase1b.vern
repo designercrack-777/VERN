@@ -1,0 +1,39 @@
+// Test list/dict params and invoke
+
+list names
+  "alice"
+  "bob"
+  "carol"
+end list
+
+// Extension 4: list param
+script .printlist takes list mylist
+  repeat through list mylist
+    show current item
+  end repeat
+end script
+
+run .printlist.script with list names
+
+// Extension 4: modify list via param (reference semantics)
+script .additem takes list mylist, .newitem
+  put .newitem in list mylist
+end script
+
+run .additem.script with list names, "diana"
+count list names as .c
+show .c
+
+// Extension 10: first-class functions
+script .apply takes script fn, .value
+  invoke script fn with .value as .result
+  show .result
+end script
+
+run .apply.script with script .double.script, 7
+
+script .double takes .x
+  set .r to .x * 2
+  return .r
+end script
+

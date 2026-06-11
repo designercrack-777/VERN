@@ -1,0 +1,161 @@
+// TEST 17 — dictsearch.vern — searchdict and haskey
+// Tests: shallow search, deep search (levels 2-4), haskey, empty dict,
+//        missing key, ambiguous empty-string case
+
+import .dictsearch.vern.lib.folder
+
+show "--- 1. searchdict — key at level 1 ---"
+dictionary flat
+  "name": "alice"
+  "age": "30"
+  "city": "portland"
+end dictionary
+
+run .searchdict.script with dictionary flat, "age" as .val
+show .val
+// expected: 30
+if .val = "30"
+  show "PASS: level 1 key found"
+otherwise
+  show "FAIL: expected 30"
+end if
+
+show "--- 2. searchdict — key at level 2 ---"
+dictionary level2
+  "score": "95"
+  "grade": "A"
+end dictionary
+
+dictionary record
+  "name": "bob"
+  "grades": level2
+end dictionary
+
+run .searchdict.script with dictionary record, "score" as .score
+show .score
+// expected: 95
+if .score = "95"
+  show "PASS: level 2 key found"
+otherwise
+  show "FAIL: expected 95 at level 2"
+end if
+
+show "--- 3. searchdict — key at level 3 ---"
+dictionary level3data
+  "target": "found at depth 3"
+end dictionary
+
+dictionary l2wrapper
+  "info": level3data
+end dictionary
+
+dictionary l1wrapper
+  "section": l2wrapper
+end dictionary
+
+run .searchdict.script with dictionary l1wrapper, "target" as .deep
+show .deep
+// expected: found at depth 3
+if .deep = "found at depth 3"
+  show "PASS: level 3 key found"
+otherwise
+  show "FAIL: level 3 key not found"
+end if
+
+show "--- 4. searchdict — key not found ---"
+run .searchdict.script with dictionary flat, "missing" as .miss
+show .miss
+// expected: (empty string)
+if .miss = ""
+  show "PASS: missing key returns empty string"
+otherwise
+  show "FAIL: expected empty string for missing key"
+end if
+
+show "--- 5. haskey — key present at level 1 ---"
+run .haskey.script with dictionary flat, "name" as .exists
+show .exists
+// expected: true
+if .exists = true
+  show "PASS: haskey true for existing key"
+otherwise
+  show "FAIL: expected true"
+end if
+
+show "--- 6. haskey — key present at level 2 ---"
+run .haskey.script with dictionary record, "grade" as .exists2
+show .exists2
+// expected: true
+if .exists2 = true
+  show "PASS: haskey true for level 2 key"
+otherwise
+  show "FAIL: expected true at level 2"
+end if
+
+show "--- 7. haskey — key not present ---"
+run .haskey.script with dictionary flat, "telephone" as .absent
+show .absent
+// expected: false
+if .absent = false
+  show "PASS: haskey false for absent key"
+otherwise
+  show "FAIL: expected false"
+end if
+
+show "--- 8. empty dictionary ---"
+dictionary emptydict
+end dictionary
+
+run .searchdict.script with dictionary emptydict, "anything" as .ev
+show .ev
+// expected: (empty string)
+if .ev = ""
+  show "PASS: empty dict searchdict returns empty"
+otherwise
+  show "FAIL: expected empty string"
+end if
+
+run .haskey.script with dictionary emptydict, "anything" as .eh
+show .eh
+// expected: false
+if .eh = false
+  show "PASS: empty dict haskey returns false"
+otherwise
+  show "FAIL: expected false for empty dict"
+end if
+
+show "--- 9. searchdict finds first match ---"
+dictionary dupe1
+  "key": "first"
+end dictionary
+
+dictionary dupe2
+  "key": "second"
+end dictionary
+
+dictionary dupewrapper
+  "a": dupe1
+  "b": dupe2
+end dictionary
+
+run .searchdict.script with dictionary dupewrapper, "key" as .firstmatch
+show .firstmatch
+// expected: first (first match encountered)
+if .firstmatch = "first"
+  show "PASS: searchdict returns first match"
+otherwise
+  show "INFO: got"
+  show .firstmatch
+end if
+
+show "--- 10. haskey in deeply nested structure ---"
+run .haskey.script with dictionary l1wrapper, "target" as .deepexists
+show .deepexists
+// expected: true
+if .deepexists = true
+  show "PASS: haskey finds key at depth 3"
+otherwise
+  show "FAIL: expected true for depth 3"
+end if
+
+show "--- DONE ---"

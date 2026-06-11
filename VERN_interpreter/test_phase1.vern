@@ -1,0 +1,33 @@
+// Test Phase 1 extensions
+
+// Extension 8: None type
+set .a to none
+show .a
+type of .a as .t
+show .t
+
+// None comparison
+if .a = none then show "a is none"
+if .a != "hello" then show "a is not hello"
+
+// Extension 2: return Form 2 (single)
+script .double takes .x
+  set .result to .x * 2
+  return .result
+end script
+
+run .double.script with 5 as .answer
+show .answer
+
+// Extension 9: multiple returns
+script .twovals takes .x
+  set .a to .x + 1
+  set .b to .x + 2
+  return .a
+  return .b
+end script
+
+run .twovals.script with 10 as .first, .second
+show .first
+show .second
+

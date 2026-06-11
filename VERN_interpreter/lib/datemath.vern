@@ -1,0 +1,21 @@
+// datemath.vern
+// VERN Standard Library — Date Math Helpers
+// The VERN Project — 2026
+
+script .daysfrom takes .targetdate
+    get date as .today
+    difference between .today and .targetdate in days as .result
+    return .result
+end script
+
+script .ispast takes .targetdate
+    get date as .today
+    set .result to false
+    if .targetdate is less than .today then set .result to true
+    return .result
+end script
+
+script .daysbetween takes .firstdate, .seconddate
+    difference between .firstdate and .seconddate in days as .result
+    return .result
+end script
