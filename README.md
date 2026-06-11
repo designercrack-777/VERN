@@ -155,6 +155,8 @@ The interpreter implements every v0.7.5 feature and is distributed as a standalo
 
 This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_5.md`.
 
+Permanent public record: https://doi.org/10.5281/zenodo.20646051
+
 All rights reserved. No license is granted for use, modification, or distribution without explicit permission from The VERN Project.
 
 ---
