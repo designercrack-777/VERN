@@ -15,6 +15,7 @@ VERN is not a programming language in English. It is a universal imperative gram
 Existing programming languages require users to learn English keywords as a prerequisite to computation. Internationalization efforts translate user interfaces and documentation — but the code itself remains English. VERN makes the executable vocabulary the localization target. A programmer writes code in their own language. The machine runs it.
 
 This is distinct from:
+
 - **i18n** — translating UI strings while code stays English
 - **l10n** — adapting regional formats while code stays English
 - **DSLs** — specialized English vocabulary for specific domains
@@ -27,9 +28,9 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 ## Repository Contents
 
 | Document | Description |
-|---|---|
-| `VERN_Invariant_Grammar_v0_7_5.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_7_5.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
+| --- | --- |
+| `VERN_Invariant_Grammar_v0_7_7.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_7_7.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
 
 ---
 
@@ -127,6 +128,10 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 **Extended math** — trigonometric operations (`sine`, `cosine`, `tangent` and inverses, hyperbolic forms), logarithms (natural, base 10, arbitrary base), mathematical constants (`pi`, `e`, `tau`, `infinity`), angle conversion, and additional numeric operations (`sum`, `factorial`, `combinations`, `permutations`, `sign`). All non-destructive, all strictly numeric.
 
+**Negative number literals** — negative numbers are written directly: `-15`, `-0.5`. No workaround needed.
+
+**Expression grouping** — parentheses group math expressions exactly as in written mathematics: `(3 + 4) * 2`. Left-to-right evaluation is the default without parentheses.
+
 **Strict pidgin grammar** — limited vocabulary, rigid structure, one instruction per line. No synonyms, no optional words, no free-form parsing. What you see is what runs.
 
 **Period-chain referencing** — values, scripts, files, and folders are referenced by containment chain reading specific to general: `.valuename.scriptname.script.filename.vern`. Directory navigation uses `.folder` and `.parent` descriptors. The minimum necessary chain is always used.
@@ -147,15 +152,15 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Status
 
-**Current version: v0.7.5 — Specification complete. Interpreter complete. Packaged and installed.**
+**Current version: v0.7.7 — Specification complete. Interpreter complete. Windows installer available.**
 
-The interpreter implements every v0.7.5 feature and is distributed as a standalone Windows executable. No Python or dependencies required.
+The interpreter implements every v0.7.7 feature and is distributed as a standalone Windows executable with a proper installer. No Python or dependencies required.
 
 ---
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_5.md`.
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_7.md`.
 
 Permanent public record: https://doi.org/10.5281/zenodo.20646051
 
