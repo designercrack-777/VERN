@@ -188,6 +188,8 @@ _RE_DATE     = re.compile(r'\d{4}-\d{2}-\d{2}(?!\d)')
 _RE_TIME     = re.compile(r'\d{2}:\d{2}:\d{2}(?!\d)')
 # Number: integer or decimal
 _RE_NUM      = re.compile(r'\d+(?:\.\d+)?')
+# Negative number literal: - immediately adjacent to a digit (no whitespace between)
+_RE_NEG_NUM  = re.compile(r'-\d+(?:\.\d+)?')
 # A bare word: letter then letters/digits/underscores (underscore-leading invalid).
 _RE_WORD     = re.compile(r'[a-zA-Z][a-zA-Z0-9_]*')
 
@@ -205,6 +207,8 @@ _SYMBOLS: List[Tuple[str, str]] = [
     ("/",  "SLASH"),
     (",",  "COMMA"),
     (":",  "COLON"),
+    ("(",  "LPAREN"),
+    (")",  "RPAREN"),
 ]
 
 
@@ -268,7 +272,7 @@ def _tokenize_line(text: str, line_no: int) -> List[Token]:
             while end < n and text[end] != '"':
                 end += 1
             if end >= n:
-                raise TokenizeError("unterminated text literal", line_no)
+                raise TokenizeError("Text value starting on this line is never closed. Add a closing quotation mark.", line_no)
             tokens.append(Token("TEXT_LITERAL", text[pos + 1:end], line_no))
             pos = end + 1
             continue
@@ -289,9 +293,19 @@ def _tokenize_line(text: str, line_no: int) -> List[Token]:
                 pos = m.end()
                 continue
             raise TokenizeError(
-                f"invalid container tag at '{text[pos:pos + 10].rstrip()}'",
+                f"'{text[pos:pos + 10].rstrip()}' is not a valid container tag. "
+                f"Container tags must start with '#' followed immediately by a name — no spaces.",
                 line_no,
             )
+
+        # ── negative number literal: - immediately adjacent to a digit (no space)
+        # Spec: whitespace distinguishes unary minus from subtraction.
+        if ch == '-' and pos + 1 < n and text[pos + 1].isdigit():
+            m = _RE_NEG_NUM.match(text, pos)
+            if m:
+                tokens.append(Token("NUMBER_LITERAL", m.group(), line_no))
+                pos = m.end()
+                continue
 
         # ── numeric literals — date and time tried before plain number
         if ch.isdigit():
@@ -345,7 +359,8 @@ def _tokenize_line(text: str, line_no: int) -> List[Token]:
                 continue
 
         raise TokenizeError(
-            f"unexpected character {ch!r} at column {pos + 1}",
+            f"The character {ch!r} at column {pos + 1} is not recognised by VERN. "
+            f"Remove it or check that you are using a plain text editor.",
             line_no,
         )
 

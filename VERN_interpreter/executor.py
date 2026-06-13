@@ -79,8 +79,8 @@ class VernExecutor:
         """Recursively check that nested list/dict structures don't exceed max_depth."""
         if depth > max_depth:
             raise FatalError(
-                f"data structure exceeds maximum nesting depth of {max_depth}"
-                + (f" at {path}" if path else ""), 0)
+                f"Data structure is nested too deeply{' in ' + path if path else ''}. "
+                f"The maximum nesting depth is {max_depth} levels.", 0)
         if isinstance(value, dict):
             for k, v in value.items():
                 if isinstance(v, (dict, list)):
@@ -144,8 +144,9 @@ class VernExecutor:
         # Validate: serve requires an execution mode
         if serve_node and exec_mode == 'stop':
             raise FatalError(
-                "serve: a serving program must declare an execution mode "
-                "(wait keep, wait reset, cycle keep, or cycle reset)", serve_node.line)
+                "A program that uses 'serve' must also declare an execution mode. "
+                "Add 'wait keep', 'wait reset', 'cycle keep', or 'cycle reset' after the serve declaration.",
+                serve_node.line)
 
         if exec_mode == 'stop':
             # Single-run (original behavior)
@@ -181,8 +182,9 @@ class VernExecutor:
                     self._find_script(script_ref)
                 except FatalError as e:
                     raise FatalError(
-                        f"route '{rpath}': script '{script_ref.ref}' is not declared "
-                        f"in this program", serve_node.line)
+                        f"The route '{rpath}' points to '{script_ref.ref}', which is not a declared script. "
+                        f"Add 'script .{script_ref.ref.lstrip('.')}' to the program or correct the route.",
+                        serve_node.line)
             # Run the init script
             try:
                 for node in cycle_nodes:
@@ -270,37 +272,38 @@ class VernExecutor:
                 path = self._eval_expr(node.source, scope, loop_ctx, container_tag)
                 if not isinstance(path, str):
                     raise FatalError(
-                        f"read: path must be a text value, got {self._type_name(path)}",
+                        f"The value after 'path' in 'read' must be text, but it holds a {self._type_name(path)} value. "
+                        f"Assign the file path as a text value first.",
                         node.line)
                 ext = os.path.splitext(path)[1].lstrip('.').lower()
                 if ext not in ALL_RECOGNIZED_EXTENSIONS:
                     raise FatalError(
-                        f"read: '{os.path.basename(path)}' has unrecognized extension "
-                        f"'.{ext}'. Use a supported file extension.", node.line)
+                        f"'{os.path.basename(path)}' has an unrecognized file extension '.{ext}'. "
+                        f"Only recognised extensions can be used with 'read'.", node.line)
             else:
                 path = self._resolve_file_ref(node.source)
             filename = os.path.basename(path)
             ext = os.path.splitext(path)[1].lstrip('.').lower()
             if ext in BINARY_EXTENSIONS:
                 raise FatalError(
-                    f"Cannot read '{filename}' — '{ext}' files cannot be read as values. "
-                    f"Binary files support only 'delete' and 'exist' operations.",
+                    f"'{filename}' is a binary file and cannot be read as a value. "
+                    f"Binary files (.{ext}) support only 'delete' and 'exist'.",
                     node.line)
             if ext in TEXT_EXTENSIONS:
                 if len(node.targets) > 1:
                     raise FatalError(
-                        f"Cannot read '{filename}' into multiple values — "
-                        f"non-VERN files return the entire file contents as a single value.",
+                        f"'{filename}' can only be read into one value. "
+                        f"Non-VERN files return their entire contents as a single text value.",
                         node.line)
                 try:
                     with open(path, 'r', encoding='utf-8') as f:
                         content = f.read()
                 except FileNotFoundError:
                     raise FatalError(
-                        f"Cannot read '{filename}' — the file does not exist.", node.line)
+                        f"'{filename}' could not be found. Check that the file exists and the path is correct.", node.line)
                 except PermissionError:
                     raise FatalError(
-                        f"Cannot read '{filename}' — permission denied.", node.line)
+                        f"'{filename}' could not be read — permission denied. Check that the file is accessible.", node.line)
                 self._set_var(node.targets[0], content, scope)
             else:
                 # .vern — line-mapped reading
@@ -312,14 +315,14 @@ class VernExecutor:
                             lines = lines[:-1]
                 except FileNotFoundError:
                     raise FatalError(
-                        f"Cannot read '{filename}' — the file does not exist.", node.line)
+                        f"'{filename}' could not be found. Check that the file exists and the path is correct.", node.line)
                 except PermissionError:
                     raise FatalError(
-                        f"Cannot read '{filename}' — permission denied.", node.line)
+                        f"'{filename}' could not be read — permission denied. Check that the file is accessible.", node.line)
                 if len(lines) < len(node.targets):
                     raise FatalError(
-                        f"Cannot read '{filename}' — the file has {len(lines)} "
-                        f"line(s) but {len(node.targets)} value(s) were requested.",
+                        f"'{filename}' has {len(lines)} line(s) but {len(node.targets)} value(s) were requested. "
+                        f"The file does not have enough lines.",
                         node.line)
                 for i, target in enumerate(node.targets):
                     self._set_var(target, lines[i], scope)
@@ -329,27 +332,28 @@ class VernExecutor:
                 path = self._eval_expr(node.dest, scope, loop_ctx, container_tag)
                 if not isinstance(path, str):
                     raise FatalError(
-                        f"write: path must be a text value, got {self._type_name(path)}",
+                        f"The value after 'path' in 'write' must be text, but it holds a {self._type_name(path)} value. "
+                        f"Assign the file path as a text value first.",
                         node.line)
                 ext = os.path.splitext(path)[1].lstrip('.').lower()
                 if ext not in ALL_RECOGNIZED_EXTENSIONS:
                     raise FatalError(
-                        f"write: '{os.path.basename(path)}' has unrecognized extension "
-                        f"'.{ext}'. Use a supported file extension.", node.line)
+                        f"'{os.path.basename(path)}' has an unrecognized file extension '.{ext}'. "
+                        f"Only recognised extensions can be used with 'write'.", node.line)
             else:
                 path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
             ext = os.path.splitext(path)[1].lstrip('.').lower()
             if ext in BINARY_EXTENSIONS:
                 raise FatalError(
-                    f"Cannot write '{filename}' — '{ext}' files cannot be written. "
-                    f"Binary files support only 'delete' and 'exist' operations.",
+                    f"'{filename}' is a binary file and cannot be written. "
+                    f"Binary files (.{ext}) support only 'delete' and 'exist'.",
                     node.line)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
                 raise FatalError(
-                    f"Cannot write '{filename}' — the folder does not exist: "
-                    f"{parent_dir}", node.line)
+                    f"'{filename}' could not be written — the folder '{parent_dir}' does not exist. "
+                    f"Create the folder first.", node.line)
             content = [self._to_display(self._eval_expr(v, scope, loop_ctx, container_tag))
                        for v in node.values]
             try:
@@ -359,34 +363,35 @@ class VernExecutor:
                     f.write('\n'.join(content) + '\n')
             except PermissionError:
                 raise FatalError(
-                    f"Cannot write '{filename}' — permission denied.", node.line)
+                    f"'{filename}' could not be written — permission denied. Check that the file and folder are accessible.", node.line)
 
         elif t is AppendInstr:
             if node.dest_is_path:
                 path = self._eval_expr(node.dest, scope, loop_ctx, container_tag)
                 if not isinstance(path, str):
                     raise FatalError(
-                        f"append: path must be a text value, got {self._type_name(path)}",
+                        f"The value after 'path' in 'append' must be text, but it holds a {self._type_name(path)} value. "
+                        f"Assign the file path as a text value first.",
                         node.line)
                 ext = os.path.splitext(path)[1].lstrip('.').lower()
                 if ext not in ALL_RECOGNIZED_EXTENSIONS:
                     raise FatalError(
-                        f"append: '{os.path.basename(path)}' has unrecognized extension "
-                        f"'.{ext}'. Use a supported file extension.", node.line)
+                        f"'{os.path.basename(path)}' has an unrecognized file extension '.{ext}'. "
+                        f"Only recognised extensions can be used with 'append'.", node.line)
             else:
                 path = self._resolve_file_ref(node.dest)
             filename = os.path.basename(path)
             ext = os.path.splitext(path)[1].lstrip('.').lower()
             if ext in BINARY_EXTENSIONS:
                 raise FatalError(
-                    f"Cannot append to '{filename}' — '{ext}' files cannot be written. "
-                    f"Binary files support only 'delete' and 'exist' operations.",
+                    f"'{filename}' is a binary file and cannot be appended to. "
+                    f"Binary files (.{ext}) support only 'delete' and 'exist'.",
                     node.line)
             parent_dir = os.path.dirname(path)
             if parent_dir and not os.path.isdir(parent_dir):
                 raise FatalError(
-                    f"Cannot append to '{filename}' — the folder does not exist: "
-                    f"{parent_dir}", node.line)
+                    f"'{filename}' could not be written — the folder '{parent_dir}' does not exist. "
+                    f"Create the folder first.", node.line)
             content = [self._to_display(self._eval_expr(v, scope, loop_ctx, container_tag))
                        for v in node.values]
             try:
@@ -394,33 +399,34 @@ class VernExecutor:
                     f.write('\n'.join(content) + '\n')
             except PermissionError:
                 raise FatalError(
-                    f"Cannot append to '{filename}' — permission denied.", node.line)
+                    f"'{filename}' could not be appended to — permission denied. Check that the file and folder are accessible.", node.line)
 
         elif t is DeleteInstr:
             if node.path_is_path:
                 path = self._eval_expr(node.path, scope, loop_ctx, container_tag)
                 if not isinstance(path, str):
                     raise FatalError(
-                        f"delete: path must be a text value, got {self._type_name(path)}",
+                        f"The value after 'path' in 'delete' must be text, but it holds a {self._type_name(path)} value. "
+                        f"Assign the file path as a text value first.",
                         node.line)
                 ext = os.path.splitext(path)[1].lstrip('.').lower()
                 if ext not in ALL_RECOGNIZED_EXTENSIONS:
                     raise FatalError(
-                        f"delete: '{os.path.basename(path)}' has unrecognized extension "
-                        f"'.{ext}'. Use a supported file extension.", node.line)
+                        f"'{os.path.basename(path)}' has an unrecognized file extension '.{ext}'. "
+                        f"Only recognised extensions can be used with 'delete'.", node.line)
             else:
                 path = self._resolve_file_ref(node.path)
             filename = os.path.basename(path)
             if not os.path.exists(path):
                 raise FatalError(
-                    f"Cannot delete '{filename}' — the file does not exist. "
-                    f"Use 'if .{filename} exist' to check before deleting.",
+                    f"'{filename}' could not be deleted — the file does not exist. "
+                    f"Use 'if .filename exist' to check before deleting.",
                     node.line)
             try:
                 os.remove(path)
             except PermissionError:
                 raise FatalError(
-                    f"Cannot delete '{filename}' — permission denied.", node.line)
+                    f"'{filename}' could not be deleted — permission denied. Check that the file is accessible.", node.line)
 
         elif t is GetFilesInstr:
             folder = self._resolve_folder_ref(node.folder)
@@ -449,21 +455,23 @@ class VernExecutor:
             if event is None:
                 target_name = os.path.basename(target_path)
                 raise FatalError(
-                    f"stop: '{target_name}' is not currently running", node.line)
+                    f"Cannot stop '{target_name}' — it is not currently running. "
+                    f"Make sure the program is launched before sending a stop signal.", node.line)
             event.set()   # fire-and-forget — caller continues normally
 
         elif t is LaunchInstr:
             if scope is self.file_scope:
                 raise FatalError(
-                    "launch: can only be used inside a script", node.line)
+                    "'launch' can only be used inside a script, not at the file level.", node.line)
             target_path = self._resolve_file_ref(node.target)
             if not os.path.exists(target_path):
                 target_name = os.path.basename(target_path)
                 raise FatalError(
-                    f"launch: file not found: '{target_name}'", node.line)
+                    f"'{target_name}' could not be launched — the file was not found. "
+                    f"Check that the file exists in the same folder.", node.line)
             if os.path.abspath(target_path) == os.path.abspath(self.program_path):
                 raise FatalError(
-                    "launch: a program cannot launch itself", node.line)
+                    "A program cannot launch itself. Change the target to a different program file.", node.line)
             # Pre-register under the lock so the launched program is immediately
             # addressable by stop before the new thread has started executing.
             pre_event = threading.Event()
@@ -471,7 +479,8 @@ class VernExecutor:
                 if target_path in _program_registry:
                     target_name = os.path.basename(target_path)
                     raise FatalError(
-                        f"launch: '{target_name}' is already running", node.line)
+                        f"'{target_name}' is already running and cannot be launched again. "
+                        f"Stop it first if you need to restart it.", node.line)
                 _program_registry[target_path] = pre_event
             def _run_launched(path=target_path):
                 from parser import parse_file as _parse_file
@@ -487,7 +496,7 @@ class VernExecutor:
         elif t is WaitInstr:
             if scope is self.file_scope:
                 raise FatalError(
-                    "wait: can only be used inside a script", node.line)
+                    "'wait' can only be used inside a script, not at the file level.", node.line)
             secs = node.duration / 1000.0 if node.unit == 'milliseconds' else float(node.duration)
             time.sleep(secs)
 
@@ -500,21 +509,25 @@ class VernExecutor:
         elif t is RespondInstr:
             if not getattr(_request_context, 'active', False):
                 raise FatalError(
-                    "respond: can only be used inside a routed script", node.line)
+                    "'respond' can only be used inside a script that handles an incoming request. "
+                    "It is not valid outside a routed script.", node.line)
             if getattr(_request_context, 'responded', False):
                 raise FatalError(
-                    "respond: cannot respond more than once per request", node.line)
+                    "A response has already been sent for this request. "
+                    "Only one 'respond' is allowed per script execution.", node.line)
             _request_context.responded = True
             if node.is_file:
                 if node.file_is_path:
                     fp = self._eval_expr(node.file_ref, scope, loop_ctx, container_tag)
                     if not isinstance(fp, str):
                         raise FatalError(
-                            "respond file path: path must be a text value", node.line)
+                            "The value after 'respond file path' must be text. "
+                            "Assign the file path as a text value first.", node.line)
                     fext = os.path.splitext(fp)[1].lstrip('.').lower()
                     if fext not in ALL_RECOGNIZED_EXTENSIONS:
                         raise FatalError(
-                            f"respond file path: unrecognized extension '.{fext}'",
+                            f"The file referenced by 'respond file path' has an unrecognized extension '.{fext}'. "
+                            f"Only recognised extensions can be served.",
                             node.line)
                     _request_context.file_path = fp
                 else:
@@ -522,7 +535,8 @@ class VernExecutor:
                     fext = os.path.splitext(fp)[1].lstrip('.').lower()
                     if fext not in ALL_RECOGNIZED_EXTENSIONS:
                         raise FatalError(
-                            f"respond file: unrecognized extension '.{fext}'", node.line)
+                            f"The file referenced by 'respond file' has an unrecognized extension '.{fext}'. "
+                            f"Only recognised extensions can be served.", node.line)
                     _request_context.file_path = fp
                 _request_context.is_file = True
                 _request_context.response = None
@@ -552,11 +566,13 @@ class VernExecutor:
             script_def = scope.get(node.param_name)
             if script_def is None:
                 raise FatalError(
-                    f"invoke: script parameter '{node.param_name}' not found in scope",
+                    f"'{node.param_name}' is not a declared script parameter in this script. "
+                    f"Check the 'takes' declaration.",
                     node.line)
             if not isinstance(script_def, ScriptDef):
                 raise FatalError(
-                    f"invoke: '{node.param_name}' is not a script", node.line)
+                    f"'{node.param_name}' is not a script parameter. "
+                    f"'invoke' can only be used with parameters declared as 'script' in the 'takes' list.", node.line)
             args = []
             for a in node.args:
                 if isinstance(a, tuple):
@@ -576,7 +592,7 @@ class VernExecutor:
                 collector = getattr(self, '_return_collector', None)
                 if collector is None:
                     raise FatalError(
-                        "bare 'return' used outside a Form 2 script", node.line)
+                        "'return' without 'pass to' can only be used when the calling 'run' instruction uses 'as' to receive the result.", node.line)
                 collector.append(val)
                 if not getattr(self, '_is_multi_return', False):
                     # Single-return: stop execution via signal
@@ -627,8 +643,8 @@ class VernExecutor:
                 lst = self._eval_expr(node.list_name, scope, loop_ctx, container_tag)
                 if not isinstance(lst, list):
                     raise FatalError(
-                        f"repeat through list: '{self._ref_name(node.list_name)}' "
-                        f"is not a list", node.line)
+                        f"'{self._ref_name(node.list_name)}' is not a list. "
+                        f"'repeat through list' requires a declared list.", node.line)
             else:
                 lst = self._get_list(node.list_name, node.file_ref)
             iteration = 0
@@ -648,8 +664,8 @@ class VernExecutor:
                 d = self._eval_expr(node.dict_name, scope, loop_ctx, container_tag)
                 if not isinstance(d, dict):
                     raise FatalError(
-                        f"repeat through dictionary: '{self._ref_name(node.dict_name)}' "
-                        f"is not a dictionary", node.line)
+                        f"'{self._ref_name(node.dict_name)}' is not a dictionary. "
+                        f"'repeat through dictionary' requires a declared dictionary.", node.line)
             else:
                 d = self._get_dict(node.dict_name, node.file_ref)
             iteration = 0
@@ -665,12 +681,12 @@ class VernExecutor:
 
         elif t is ExitLoopInstr:
             if loop_ctx is None:
-                raise FatalError("exit loop: used outside a loop block", node.line)
+                raise FatalError("'exit loop' can only be used inside a 'repeat' or 'while' block.", node.line)
             raise ExitLoopSignal()
 
         elif t is NextItemInstr:
             if loop_ctx is None:
-                raise FatalError("next item: used outside a loop block", node.line)
+                raise FatalError("'next item' can only be used inside a 'repeat' or 'while' block.", node.line)
             raise NextItemSignal()
 
         # ── Error recovery ────────────────────────────────────────────────────
@@ -699,8 +715,10 @@ class VernExecutor:
                     if item_expr in self.dicts:
                         items.append(self.dicts[item_expr])
                     else:
-                        raise FatalError(f"list: '{item_expr}' is not a declared dictionary",
-                                         node.line)
+                        raise FatalError(
+                            f"'{item_expr}' is not a declared dictionary. "
+                            f"Items in a list of dictionaries must be dictionary names declared at the file level.",
+                            node.line)
                 else:
                     items.append(self._eval_expr(item_expr, scope, loop_ctx, container_tag))
             self.lists[node.name] = items
@@ -711,15 +729,17 @@ class VernExecutor:
             for key_expr, val_expr in node.pairs:
                 k = self._eval_expr(key_expr, scope, loop_ctx, container_tag)
                 if k in seen_keys:
-                    raise FatalError(f"dictionary: duplicate key '{k}'", node.line)
+                    raise FatalError(f"The key '{k}' appears more than once in this dictionary declaration. Each key must be unique.", node.line)
                 seen_keys.add(k)
                 # Check if val_expr is a bare identifier referencing a dict
                 if isinstance(val_expr, str):
                     if val_expr in self.dicts:
                         d[str(k)] = self.dicts[val_expr]
                     else:
-                        raise FatalError(f"dictionary: '{val_expr}' is not a declared dictionary",
-                                         node.line)
+                        raise FatalError(
+                            f"'{val_expr}' is not a declared dictionary. "
+                            f"Values in a dictionary of dictionaries must be dictionary names declared at the file level.",
+                            node.line)
                 else:
                     d[str(k)] = self._eval_expr(val_expr, scope, loop_ctx, container_tag)
             self.dicts[node.name] = d
@@ -738,8 +758,8 @@ class VernExecutor:
                 if actual != expected:
                     display_val = self._to_display(val)
                     raise FatalError(
-                        f"Cannot add '{display_val}' ({actual}) to list '{node.list_name}' "
-                        f"— the list already contains {expected} values.", node.line)
+                        f"Cannot add a {actual} value to list '{node.list_name}' "
+                        f"— the list already contains {expected} values. All items in a list must be the same type.", node.line)
             lst.append(val)
 
         elif t is PutInDict:
@@ -757,20 +777,24 @@ class VernExecutor:
                     dict_label = node.dict_ref if isinstance(node.dict_ref, str) else 'inline'
                     raise FatalError(
                         f"Cannot add a {actual_type} value to dictionary '{dict_label}' "
-                        f"— the dictionary already contains {existing_type} values.",
+                        f"— the dictionary already contains {existing_type} values. All values in a dictionary must be the same type.",
                         node.line)
             d[key] = val
 
         elif t is PutDictInList:
             d = self.dicts.get(node.dict_name)
             if d is None:
-                raise FatalError(f"dictionary '{node.dict_name}' not found", node.line)
+                raise FatalError(
+                    f"'{node.dict_name}' is not a declared dictionary. "
+                    f"Declare it at the file level before adding it to a list.", node.line)
             self.lists[node.list_name].append(d)
 
         elif t is PutDictInDict:
             d = self.dicts.get(node.dict_name)
             if d is None:
-                raise FatalError(f"dictionary '{node.dict_name}' not found", node.line)
+                raise FatalError(
+                    f"'{node.dict_name}' is not a declared dictionary. "
+                    f"Declare it at the file level before adding it to a dictionary.", node.line)
             key = str(self._eval_expr(node.key, scope, loop_ctx, container_tag))
             self.dicts[node.target_dict][key] = d
 
@@ -801,8 +825,8 @@ class VernExecutor:
             lst = self._get_list(node.list_name, node.file_ref)
             if pos < 1 or pos > len(lst):
                 raise FatalError(
-                    f"Cannot get position {pos} from list '{node.list_name}' "
-                    f"— the list has {len(lst)} item(s). Positions begin at 1.", node.line)
+                    f"Position {pos} is out of range for list '{node.list_name}', which has {len(lst)} item(s). "
+                    f"Positions begin at 1.", node.line)
             self._set_var(node.result, lst[pos - 1], scope)
 
         elif t is GetDictItem:
@@ -813,8 +837,8 @@ class VernExecutor:
                 d = self._eval_expr(node.dict_ref, scope, loop_ctx, container_tag)
             if key not in d:
                 raise FatalError(
-                    f"get dictionary: key '{key}' not found in dictionary "
-                    f"'{node.dict_ref if isinstance(node.dict_ref, str) else 'inline'}'.",
+                    f"The key '{key}' was not found in dictionary '{node.dict_ref if isinstance(node.dict_ref, str) else 'inline'}'. "
+                    f"Check that the key exists before retrieving it.",
                     node.line)
             self._set_var(node.result, d[key], scope)
 
@@ -829,8 +853,8 @@ class VernExecutor:
         elif t is SortList:
             if node.result_name not in self.lists:
                 raise FatalError(
-                    f"Cannot sort: target list '{node.result_name}' must be declared "
-                    f"before sort is called.", node.line)
+                    f"The list '{node.result_name}' must be declared before 'sort' can write to it. "
+                    f"Add 'list {node.result_name}' at the file level.", node.line)
             lst = self.lists.get(node.list_name, [])
             if not lst:
                 self.lists[node.result_name] = []
@@ -838,8 +862,8 @@ class VernExecutor:
                 lst_type = self._type_name(lst[0])
                 if lst_type == 'dictionary':
                     raise FatalError(
-                        f"Cannot sort list '{node.list_name}' — "
-                        f"sorting a list of dictionaries is not supported.", node.line)
+                        f"List '{node.list_name}' contains dictionaries and cannot be sorted. "
+                        f"Sorting is only supported for text and number lists.", node.line)
                 try:
                     # Dates and times are tuples ('date'/'time', 'YYYY-MM-DD'/'HH:MM:SS').
                     # Sort by the value string — both formats are lexicographically ordered.
@@ -850,21 +874,21 @@ class VernExecutor:
                     self.lists[node.result_name] = sorted(lst, key=key_fn, reverse=node.descending)
                 except TypeError as e:
                     raise FatalError(
-                        f"Cannot sort list '{node.list_name}': {e}", node.line)
+                        f"List '{node.list_name}' could not be sorted — {e}", node.line)
 
         elif t is ReverseList:
             if node.result_name not in self.lists:
                 raise FatalError(
-                    f"Cannot reverse: target list '{node.result_name}' must be declared "
-                    f"before reverse is called.", node.line)
+                    f"The list '{node.result_name}' must be declared before 'reverse' can write to it. "
+                    f"Add 'list {node.result_name}' at the file level.", node.line)
             lst = self.lists.get(node.list_name, [])
             self.lists[node.result_name] = lst[::-1]
 
         elif t is SliceList:
             if node.result_name not in self.lists:
                 raise FatalError(
-                    f"Cannot slice: target list '{node.result_name}' must be declared "
-                    f"before slice is called.", node.line)
+                    f"The list '{node.result_name}' must be declared before 'slice' can write to it. "
+                    f"Add 'list {node.result_name}' at the file level.", node.line)
             lst = self.lists.get(node.list_name, [])
             start = int(self._to_number(
                 self._eval_expr(node.start, scope, loop_ctx, container_tag), node.line))
@@ -872,20 +896,20 @@ class VernExecutor:
                 self._eval_expr(node.end, scope, loop_ctx, container_tag), node.line))
             if start > end:
                 raise FatalError(
-                    f"Cannot slice list '{node.list_name}': start position ({start}) "
-                    f"is greater than end position ({end}).", node.line)
+                    f"Cannot slice list '{node.list_name}' — the start position ({start}) is greater than the end position ({end}). "
+                    f"Positions must be in order.", node.line)
             if start < 1 or end > len(lst):
                 raise FatalError(
-                    f"Cannot slice list '{node.list_name}': positions {start}–{end} "
-                    f"are out of range (list has {len(lst)} item(s)). Positions begin at 1.",
+                    f"Cannot slice list '{node.list_name}' — positions {start}–{end} are out of range. "
+                    f"The list has {len(lst)} item(s) and positions begin at 1.",
                     node.line)
             self.lists[node.result_name] = lst[start - 1:end]
 
         elif t is CombineList:
             if node.result not in self.lists:
                 raise FatalError(
-                    f"Cannot combine: target list '{node.result}' must be declared "
-                    f"before combine is called.", node.line)
+                    f"The list '{node.result}' must be declared before 'combine' can write to it. "
+                    f"Add 'list {node.result}' at the file level.", node.line)
             first = self.lists.get(node.first, [])
             second = self.lists.get(node.second, [])
             if first and second:
@@ -893,8 +917,7 @@ class VernExecutor:
                 second_type = self._type_name(second[0])
                 if first_type != second_type:
                     raise FatalError(
-                        f"Cannot combine list '{node.first}' ({first_type}) "
-                        f"with list '{node.second}' ({second_type}) "
+                        f"Cannot combine list '{node.first}' ({first_type}) with list '{node.second}' ({second_type}) "
                         f"— both lists must contain the same type.", node.line)
             self.lists[node.result] = first + second
 
@@ -938,7 +961,7 @@ class VernExecutor:
             mx = int(self._to_number(
                 self._eval_expr(node.max_val, scope, loop_ctx, container_tag), node.line))
             if mn > mx:
-                raise FatalError("random: min bound greater than max bound", node.line)
+                raise FatalError("'random' requires the minimum bound to be less than or equal to the maximum bound.", node.line)
             self._set_var(node.result, float(_random.randint(mn, mx)), scope)
 
         elif t is AbsoluteInstr:
@@ -950,7 +973,7 @@ class VernExecutor:
             if isinstance(node.operands, str):
                 lst = self.lists.get(node.operands, [])
                 if not lst:
-                    raise FatalError(f"{node.op} on empty list", node.line)
+                    raise FatalError(f"Cannot find the {node.op} of an empty list. The list must contain at least one value.", node.line)
                 nums = [self._to_number(x, node.line) for x in lst]
                 result = min(nums) if node.op == 'minimum' else max(nums)
             else:
@@ -967,7 +990,7 @@ class VernExecutor:
             total = self._to_number(
                 self._eval_expr(node.total, scope, loop_ctx, container_tag), node.line)
             if total == 0:
-                raise FatalError("percent: zero total", node.line)
+                raise FatalError("'percent' cannot divide by zero. The total value must be greater than zero.", node.line)
             self._set_var(node.result, (val / total) * 100.0, scope)
 
         elif t is SumInstr:
@@ -979,7 +1002,7 @@ class VernExecutor:
             val = self._to_number(
                 self._eval_expr(node.value, scope, loop_ctx, container_tag), node.line)
             if val < 0 or val != int(val):
-                raise FatalError("factorial: requires non-negative whole number", node.line)
+                raise FatalError("'factorial' requires a non-negative whole number. Decimals and negative numbers are not allowed.", node.line)
             self._set_var(node.result, float(math.factorial(int(val))), scope)
 
         elif t is CombinationsInstr:
@@ -1014,19 +1037,19 @@ class VernExecutor:
             val = self._to_number(
                 self._eval_expr(node.value, scope, loop_ctx, container_tag), node.line)
             if val <= 0:
-                raise FatalError("ln: value must be positive", node.line)
+                raise FatalError("'ln' requires a positive number. The natural logarithm of zero or a negative number is undefined.", node.line)
             self._set_var(node.result, math.log(val), scope)
 
         elif t is LogInstr:
             val = self._to_number(
                 self._eval_expr(node.value, scope, loop_ctx, container_tag), node.line)
             if val <= 0:
-                raise FatalError("log: value must be positive", node.line)
+                raise FatalError("'log' requires a positive number. The logarithm of zero or a negative number is undefined.", node.line)
             if node.base is not None:
                 base = self._to_number(
                     self._eval_expr(node.base, scope, loop_ctx, container_tag), node.line)
                 if base <= 0 or base == 1:
-                    raise FatalError("log: base must be positive and not 1", node.line)
+                    raise FatalError("The base for 'log' must be a positive number other than 1.", node.line)
                 result = math.log(val, base)
             else:
                 result = math.log10(val)
@@ -1046,7 +1069,7 @@ class VernExecutor:
         elif t is LengthOfInstr:
             val = self._eval_expr(node.value, scope, loop_ctx, container_tag)
             if not isinstance(val, str):
-                raise FatalError(f"length of: expected text, got {self._type_name(val)}", node.line)
+                raise FatalError(f"'length of' requires a text value, but got a {self._type_name(val)} value.", node.line)
             self._set_var(node.result, float(len(val)), scope)
 
         elif t is FindInstr:
@@ -1054,12 +1077,10 @@ class VernExecutor:
             text = self._eval_expr(node.text, scope, loop_ctx, container_tag)
             if not isinstance(text, str):
                 raise FatalError(
-                    f"find: the text to search must be a text value, "
-                    f"got {self._type_name(text)}.", node.line)
+                    f"'find' requires the value being searched to be text, but it is a {self._type_name(text)} value.", node.line)
             if not isinstance(pattern, str):
                 raise FatalError(
-                    f"find: the search pattern must be a text value, "
-                    f"got {self._type_name(pattern)}.", node.line)
+                    f"'find' requires the search text to be a text value, but it is a {self._type_name(pattern)} value.", node.line)
             pos = text.find(pattern)
             self._set_var(node.result, float(pos + 1) if pos >= 0 else 0.0, scope)
 
@@ -1071,7 +1092,7 @@ class VernExecutor:
                 self._eval_expr(node.finishing, scope, loop_ctx, container_tag), node.line))
             if beg < 1 or fin > len(text) or beg > fin:
                 raise FatalError(
-                    f"extract: positions {beg}-{fin} out of range (length {len(text)})", node.line)
+                    f"'extract' positions {beg}–{fin} are out of range. The text has {len(text)} character(s) and positions begin at 1.", node.line)
             self._set_var(node.result, text[beg - 1:fin], scope)
 
         elif t is ReplaceInstr:
@@ -1080,37 +1101,33 @@ class VernExecutor:
             text = self._eval_expr(node.text, scope, loop_ctx, container_tag)
             if not isinstance(text, str):
                 raise FatalError(
-                    f"replace: the text value must be text, "
-                    f"got {self._type_name(text)}.", node.line)
+                    f"'replace' requires the value being searched to be text, but it is a {self._type_name(text)} value.", node.line)
             if not isinstance(old, str):
                 raise FatalError(
-                    f"replace: the search value must be text, "
-                    f"got {self._type_name(old)}.", node.line)
+                    f"'replace' requires the search text to be a text value, but it is a {self._type_name(old)} value.", node.line)
             if not isinstance(new, str):
                 raise FatalError(
-                    f"replace: the replacement value must be text, "
-                    f"got {self._type_name(new)}.", node.line)
+                    f"'replace' requires the replacement to be a text value, but it is a {self._type_name(new)} value.", node.line)
             if old in text:
                 result = text.replace(old, new, 1)
             else:
                 result = text
-                self._log(f"replace: '{old}' not found in text — original assigned unchanged.",
+                self._log(f"'{old}' was not found in the text — no replacement was made. The original text was assigned as the result.",
                           node.line)
             self._set_var(node.result, result, scope)
 
         elif t is SplitInstr:
             if node.result_list not in self.lists:
                 raise FatalError(
-                    f"Cannot split: target list '{node.result_list}' must be declared "
-                    f"before split is called.", node.line)
+                    f"The list '{node.result_list}' must be declared before 'split' can write to it. "
+                    f"Add 'list {node.result_list}' at the file level.", node.line)
             text = self._eval_expr(node.text, scope, loop_ctx, container_tag)
             if not isinstance(text, str):
                 raise FatalError(
-                    f"split: the value to split must be text, "
-                    f"got {self._type_name(text)}.", node.line)
+                    f"'split' requires a text value, but the value being split is a {self._type_name(text)} value.", node.line)
             delim = str(self._eval_expr(node.delimiter, scope, loop_ctx, container_tag))
             if not delim:
-                raise FatalError("split: delimiter cannot be empty.", node.line)
+                raise FatalError("'split' requires a non-empty delimiter. An empty string cannot be used as a delimiter.", node.line)
             self.lists[node.result_list] = text.split(delim) if text else []
 
         elif t is JoinInstr:
@@ -1118,8 +1135,7 @@ class VernExecutor:
             sep = str(self._eval_expr(node.separator, scope, loop_ctx, container_tag))
             if lst and not isinstance(lst[0], str):
                 raise FatalError(
-                    f"join: list '{node.list_name}' contains {self._type_name(lst[0])} values "
-                    f"— join requires a text list.", node.line)
+                    f"'join' requires a list of text values, but list '{node.list_name}' contains {self._type_name(lst[0])} values.", node.line)
             self._set_var(node.result, sep.join(lst), scope)
 
         elif t is TrimInstr:
@@ -1167,7 +1183,7 @@ class VernExecutor:
             url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
             if not isinstance(url, str):
                 raise FatalError(
-                    f"fetch: URL must be a text value, got {self._type_name(url)}.", node.line)
+                    f"The URL for 'fetch' must be a text value, but it is a {self._type_name(url)} value.", node.line)
             try:
                 import urllib.request
                 import urllib.error
@@ -1203,17 +1219,17 @@ class VernExecutor:
             except FatalError:
                 raise
             except Exception as e:
-                raise FatalError(f"fetch failed: {e}", node.line)
+                raise FatalError(f"'fetch' failed — {e}. Check the URL and your network connection.", node.line)
 
         elif t is SendInstr:
             data = self._eval_expr(node.data, scope, loop_ctx, container_tag)
             url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
             if not isinstance(data, str):
                 raise FatalError(
-                    f"send: data must be a text value, got {self._type_name(data)}.", node.line)
+                    f"The data for 'send' must be a text value, but it is a {self._type_name(data)} value.", node.line)
             if not isinstance(url, str):
                 raise FatalError(
-                    f"send: URL must be a text value, got {self._type_name(url)}.", node.line)
+                    f"The URL for 'send' must be a text value, but it is a {self._type_name(url)} value.", node.line)
             try:
                 import urllib.request, urllib.error
                 req = urllib.request.Request(url, data=data.encode('utf-8'), method='POST')
@@ -1232,17 +1248,17 @@ class VernExecutor:
             except FatalError:
                 raise
             except Exception as e:
-                raise FatalError(f"send failed: {e}", node.line)
+                raise FatalError(f"'send' failed — {e}. Check the URL and your network connection.", node.line)
 
         elif t is UpdateInstr:
             data = self._eval_expr(node.data, scope, loop_ctx, container_tag)
             url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
             if not isinstance(data, str):
                 raise FatalError(
-                    f"update: data must be a text value, got {self._type_name(data)}.", node.line)
+                    f"The data for 'update' must be a text value, but it is a {self._type_name(data)} value.", node.line)
             if not isinstance(url, str):
                 raise FatalError(
-                    f"update: URL must be a text value, got {self._type_name(url)}.", node.line)
+                    f"The URL for 'update' must be a text value, but it is a {self._type_name(url)} value.", node.line)
             try:
                 import urllib.request, urllib.error
                 req = urllib.request.Request(url, data=data.encode('utf-8'), method='PUT')
@@ -1261,13 +1277,13 @@ class VernExecutor:
             except FatalError:
                 raise
             except Exception as e:
-                raise FatalError(f"update failed: {e}", node.line)
+                raise FatalError(f"'update' failed — {e}. Check the URL and your network connection.", node.line)
 
         elif t is DeleteUrlInstr:
             url = self._eval_expr(node.url, scope, loop_ctx, container_tag)
             if not isinstance(url, str):
                 raise FatalError(
-                    f"delete: URL must be a text value, got {self._type_name(url)}.", node.line)
+                    f"The URL for 'delete' must be a text value, but it is a {self._type_name(url)} value.", node.line)
             try:
                 import urllib.request, urllib.error
                 req = urllib.request.Request(url, method='DELETE')
@@ -1286,7 +1302,7 @@ class VernExecutor:
             except FatalError:
                 raise
             except Exception as e:
-                raise FatalError(f"delete failed: {e}", node.line)
+                raise FatalError(f"'delete' failed — {e}. Check the URL and your network connection.", node.line)
 
         elif t is ParseInstr:
             self._exec_parse(node, scope, loop_ctx, container_tag)
@@ -1319,8 +1335,8 @@ class VernExecutor:
         num_args = len(args)
         if num_args != num_params:
             raise FatalError(
-                f"script '{script_node.name.ref}' expects {num_params} "
-                f"parameter(s), got {num_args}", script_node.line)
+                f"'{script_node.name.ref}' expects {num_params} value(s) but received {num_args}. "
+                f"Check the 'with' clause on the 'run' call.", script_node.line)
 
         # Track temp list/dict bindings for cleanup
         temp_list_saves: Dict[str, Any] = {}
@@ -1332,8 +1348,8 @@ class VernExecutor:
                 if kind == 'list':
                     if not (isinstance(arg, tuple) and arg[0] == 'list'):
                         raise FatalError(
-                            f"script '{script_node.name.ref}': parameter '{param_name}' "
-                            f"expects a list argument", script_node.line)
+                            f"'{script_node.name.ref}': the parameter '{param_name}' expects a list. "
+                            f"Pass 'list name' in the 'with' clause.", script_node.line)
                     arg_list_name = arg[1]
                     src = self._get_list(arg_list_name, None)
                     temp_list_saves[param_name] = self.lists.get(param_name)
@@ -1341,8 +1357,8 @@ class VernExecutor:
                 elif kind == 'dict':
                     if not (isinstance(arg, tuple) and arg[0] == 'dict'):
                         raise FatalError(
-                            f"script '{script_node.name.ref}': parameter '{param_name}' "
-                            f"expects a dictionary argument", script_node.line)
+                            f"'{script_node.name.ref}': the parameter '{param_name}' expects a dictionary. "
+                            f"Pass 'dictionary name' in the 'with' clause.", script_node.line)
                     arg_dict_name = arg[1]
                     src = self._get_dict(arg_dict_name, None)
                     temp_dict_saves[param_name] = self.dicts.get(param_name)
@@ -1350,8 +1366,8 @@ class VernExecutor:
                 elif kind == 'script':
                     if not (isinstance(arg, tuple) and arg[0] == 'script'):
                         raise FatalError(
-                            f"script '{script_node.name.ref}': parameter '{param_name}' "
-                            f"expects a script argument", script_node.line)
+                            f"'{script_node.name.ref}': the parameter '{param_name}' expects a script. "
+                            f"Pass 'script .name.script' in the 'with' clause.", script_node.line)
                     script_ref = arg[1]   # ValueRef
                     script_def = self._find_script(script_ref)
                     scope[param_name] = script_def
@@ -1390,8 +1406,8 @@ class VernExecutor:
             collector = self._return_collector
             if len(result_names) > len(collector):
                 raise FatalError(
-                    f"script '{script_node.name.ref}' returned {len(collector)} "
-                    f"value(s) but {len(result_names)} were requested",
+                    f"'{script_node.name.ref}' returns {len(collector)} value(s) but {len(result_names)} were requested in the 'as' clause. "
+                    f"Reduce the number of names after 'as'.",
                     script_node.line)
             for i, rname in enumerate(result_names):
                 dest_name = self._ref_name(rname)
@@ -1435,7 +1451,9 @@ class VernExecutor:
                 return imp._find_script(script_ref)
             except FatalError:
                 pass
-        raise FatalError(f"script not found: {ref}", script_ref.line)
+        raise FatalError(
+            f"'{ref}' is not a declared script. Check the spelling and make sure the script is defined in this file or an imported file.",
+            script_ref.line)
 
     # ── Attempt block ──────────────────────────────────────────────────────────
 
@@ -1505,8 +1523,8 @@ class VernExecutor:
                     msg = e.msg if hasattr(e, 'msg') else str(e)
                     line = e.line if hasattr(e, 'line') else 0
                     # Dependent failure: "undefined value: .name" where .name was tainted
-                    if msg.startswith('undefined value: .') and tainted:
-                        ref_name = msg[len('undefined value: .'):].split('.')[0]
+                    if msg.startswith("'.") and "' has not been given a value" in msg and tainted:
+                        ref_name = msg[2:].split("'")[0].split('.')[0]
                         if ref_name in tainted:
                             msg = (f"could not execute — depends on .{ref_name} "
                                    f"which failed to initialize")
@@ -1542,7 +1560,7 @@ class VernExecutor:
         source_val = self._eval_expr(node.source, scope, loop_ctx, container_tag)
         if not isinstance(source_val, str):
             raise FatalError(
-                f"parse: source must be a text value, got {self._type_name(source_val)}",
+                f"'parse' requires a text value, but the source is a {self._type_name(source_val)} value.",
                 node.line)
 
         fmt = node.format.lower()
@@ -1555,7 +1573,8 @@ class VernExecutor:
                 if result_type == 'dictionary':
                     if not isinstance(data, dict):
                         raise FatalError(
-                            f"parse json: expected an object, got {type(data).__name__}",
+                            "'parse json as dictionary' requires the JSON to be an object (curly braces), "
+                            "but the value is an array. Use 'parse json as list' instead.",
                             node.line)
                     od = OrderedDict((str(k), str(v) if not isinstance(v, dict) else v)
                                      for k, v in data.items())
@@ -1563,14 +1582,15 @@ class VernExecutor:
                 else:  # list
                     if not isinstance(data, list):
                         raise FatalError(
-                            f"parse json: expected an array, got {type(data).__name__}",
+                            "'parse json as list' requires the JSON to be an array (square brackets), "
+                            "but the value is an object. Use 'parse json as dictionary' instead.",
                             node.line)
                     self.lists[result_name] = [str(i) if not isinstance(i, dict) else i
                                                for i in data]
 
             elif fmt == 'csv':
                 if result_type != 'list':
-                    raise FatalError("parse csv: result type must be 'list'", node.line)
+                    raise FatalError("'parse csv' must use 'as list'. CSV data is always parsed into a list.", node.line)
                 reader = _csv.DictReader(_io.StringIO(source_val))
                 rows = []
                 for row in reader:
@@ -1579,7 +1599,7 @@ class VernExecutor:
 
             elif fmt == 'xml':
                 if result_type != 'dictionary':
-                    raise FatalError("parse xml: result type must be 'dictionary'", node.line)
+                    raise FatalError("'parse xml' must use 'as dictionary'. XML data is always parsed into a dictionary.", node.line)
                 root = _ET.fromstring(source_val)
                 od = OrderedDict()
                 for child in root:
@@ -1588,7 +1608,7 @@ class VernExecutor:
 
             elif fmt == 'ini':
                 if result_type != 'dictionary':
-                    raise FatalError("parse ini: result type must be 'dictionary'", node.line)
+                    raise FatalError("'parse ini' must use 'as dictionary'. INI data is always parsed into a dictionary.", node.line)
                 config = _cp.ConfigParser()
                 config.read_string(source_val)
                 od = OrderedDict()
@@ -1603,7 +1623,7 @@ class VernExecutor:
         except (FatalError, RecoverableError):
             raise
         except Exception as e:
-            raise FatalError(f"parse {fmt}: {e}", node.line)
+            raise FatalError(f"'parse {fmt}' failed — {e}. Check that the text is valid {fmt.upper()} format.", node.line)
 
     def _exec_inspect(self, node: InspectInstr, scope, loop_ctx, container_tag):
         """Execute an inspect instruction — prints structure to terminal."""
@@ -1616,7 +1636,7 @@ class VernExecutor:
         source_val = self._eval_expr(node.source, scope, loop_ctx, container_tag)
         if not isinstance(source_val, str):
             raise FatalError(
-                f"inspect: source must be a text value, got {self._type_name(source_val)}",
+                f"'inspect' requires a text value, but the source is a {self._type_name(source_val)} value.",
                 node.line)
 
         fmt = node.format.lower()
@@ -1649,7 +1669,7 @@ class VernExecutor:
         except (FatalError, RecoverableError):
             raise
         except Exception as e:
-            raise FatalError(f"inspect {fmt}: {e}", node.line)
+            raise FatalError(f"'inspect {fmt}' failed — {e}. Check that the text is valid {fmt.upper()} format.", node.line)
 
     def _print_structure(self, data, indent: int = 0):
         """Recursively print a parsed data structure."""
@@ -1697,24 +1717,22 @@ class VernExecutor:
 
         elif t is LoopVar:
             if loop_ctx is None:
-                raise FatalError("loop: used outside loop block", expr.line)
+                raise FatalError("'loop' holds the current iteration number and can only be used inside a 'repeat' block.", expr.line)
             return float(loop_ctx[1])
 
         elif t is CurrentItem:
             if loop_ctx is None or loop_ctx[0] != 'list':
-                raise FatalError("current item: used outside repeat through list block", expr.line)
+                raise FatalError("'current item' can only be used inside a 'repeat through list' block.", expr.line)
             return loop_ctx[2]
 
         elif t is CurrentKey:
             if loop_ctx is None or loop_ctx[0] != 'dict':
-                raise FatalError("current key: used outside repeat through dictionary block",
-                                 expr.line)
+                raise FatalError("'current key' can only be used inside a 'repeat through dictionary' block.", expr.line)
             return loop_ctx[2]
 
         elif t is CurrentValue:
             if loop_ctx is None or loop_ctx[0] != 'dict':
-                raise FatalError("current value: used outside repeat through dictionary block",
-                                 expr.line)
+                raise FatalError("'current value' can only be used inside a 'repeat through dictionary' block.", expr.line)
             return loop_ctx[3]
 
         elif t is NoneLit:
@@ -1723,19 +1741,19 @@ class VernExecutor:
         elif t is FailReason:
             reason = scope.get('__fail_reason__')
             if reason is None:
-                raise FatalError("fail reason: used outside if fail block", expr.line)
+                raise FatalError("'fail reason' can only be used inside an 'if fail' block.", expr.line)
             return reason
 
         elif t is FailType:
             ft = scope.get('__fail_type__')
             if ft is None:
-                raise FatalError("fail type: used outside if fail block", expr.line)
+                raise FatalError("'fail type' can only be used inside an 'if fail' block.", expr.line)
             return ft
 
         elif t is RequestRef:
             if not getattr(_request_context, 'active', False):
                 raise FatalError(
-                    f"request {expr.attribute}: can only be used inside a routed script",
+                    f"'request {expr.attribute}' can only be used inside a script that handles an incoming request.",
                     expr.line)
             attr = expr.attribute
             if attr == 'body':
@@ -1771,7 +1789,7 @@ class VernExecutor:
             val = self._resolve_ref(cond, scope, loop_ctx, container_tag)
             if type(val) is not bool:
                 raise FatalError(
-                    f"condition: expected true/false value, got {self._type_name(val)}", cond.line)
+                    f"This condition must be a true/false value, but it holds a {self._type_name(val)} value.", cond.line)
             return val
 
         elif t is Comparison:
@@ -1807,13 +1825,13 @@ class VernExecutor:
             path_str = self._eval_expr(cond.ref, scope, loop_ctx, container_tag)
             if not isinstance(path_str, str):
                 raise FatalError(
-                    f"path exist: path must be a text value, got {self._type_name(path_str)}",
+                    f"The value after 'path' in an 'exist' check must be text, but it is a {self._type_name(path_str)} value.",
                     cond.line)
             ext = os.path.splitext(path_str)[1].lstrip('.').lower()
             if ext not in ALL_RECOGNIZED_EXTENSIONS:
                 raise FatalError(
-                    f"path exist: '{os.path.basename(path_str)}' has unrecognized extension "
-                    f"'.{ext}'. Use a supported file extension.", cond.line)
+                    f"'{os.path.basename(path_str)}' has an unrecognized file extension '.{ext}'. "
+                    f"Only recognised extensions can be checked with 'exist'.", cond.line)
             return os.path.exists(path_str)
 
         elif t is StartsWithCond:
@@ -1859,7 +1877,16 @@ class VernExecutor:
         ref_parts = [p for p in vref.ref.lstrip('.').split('.') if p]
         if 'script' in ref_parts:
             script_idx = ref_parts.index('script')
-            if script_idx >= 2:
+            if script_idx == 1:
+                # .scriptname.script — direct script reference (e.g. for type of)
+                key = '.' + ref_parts[0]
+                if key in self.scripts:
+                    return self.scripts[key]
+                for imp in self.imported:
+                    if key in imp.scripts:
+                        return imp.scripts[key]
+                # Not found as a script — fall through to normal value resolution
+            elif script_idx >= 2:
                 # parts[0] is value name, parts[1..script_idx-1] are script name
                 val_name = ref_parts[0]
                 script_name = ref_parts[script_idx - 1]
@@ -1875,7 +1902,7 @@ class VernExecutor:
                         if val_name in saved:
                             return saved[val_name]
                 raise FatalError(
-                    f"undefined value: .{val_name} in script .{script_name}",
+                    f"'.{val_name}' has not been given a value in script '.{script_name}'. Set it before using it, or check the spelling.",
                     vref.line)
 
         # Container lookup first
@@ -1900,7 +1927,7 @@ class VernExecutor:
             except FatalError:
                 pass
 
-        raise FatalError(f"undefined value: .{name}", vref.line)
+        raise FatalError(f"'.{name}' has not been given a value. Set it before using it, or check the spelling.", vref.line)
 
     def _resolve_simple(self, name: str, container_tag: Optional[str]):
         if container_tag and container_tag in self.containers:
@@ -1909,7 +1936,7 @@ class VernExecutor:
                 return c[name]
         if name in self.file_scope:
             return self.file_scope[name]
-        raise FatalError(f"undefined value: .{name}")
+        raise FatalError(f"'.{name}' has not been given a value. Set it before using it, or check the spelling.")
 
     def _set_var(self, vref: ValueRef, value, scope):
         name = self._ref_name(vref)
@@ -1935,10 +1962,10 @@ class VernExecutor:
             elif isinstance(left, float) and isinstance(right, float):
                 return left + right
             elif type(left) is bool or type(right) is bool:
-                raise FatalError(f"+: cannot add true/false values", line)
+                raise FatalError("True/false values cannot be added with '+'. Convert to a number or text first.", line)
             else:
                 raise FatalError(
-                    f"+: type mismatch ({self._type_name(left)}, {self._type_name(right)})", line)
+                    f"'+' cannot combine a {self._type_name(left)} value and a {self._type_name(right)} value. Both sides must be the same type.", line)
         elif op == '-':
             return self._to_number(left, line) - self._to_number(right, line)
         elif op == '*':
@@ -1946,7 +1973,7 @@ class VernExecutor:
         elif op == '/':
             r = self._to_number(right, line)
             if r == 0:
-                raise FatalError("division by zero", line)
+                raise FatalError("Division by zero is not allowed. Check that the divisor is not zero before dividing.", line)
             return self._to_number(left, line) / r
         elif op == 'power':
             return self._to_number(left, line) ** self._to_number(right, line)
@@ -1954,12 +1981,12 @@ class VernExecutor:
             n = self._to_number(right, line)
             v = self._to_number(left, line)
             if n % 2 == 0 and v < 0:
-                raise FatalError("root: even root of negative number", line)
+                raise FatalError("An even root (such as square root) of a negative number is undefined. Check that the value is zero or positive.", line)
             return v ** (1.0 / n)
         elif op == 'remainder':
             r = self._to_number(right, line)
             if r == 0:
-                raise FatalError("remainder: division by zero", line)
+                raise FatalError("'remainder' cannot divide by zero. Check that the divisor is not zero.", line)
             return math.fmod(self._to_number(left, line), r)
         else:
             raise FatalError(f"unknown operator: {op}", line)
@@ -1974,7 +2001,7 @@ class VernExecutor:
             if op in ('IS_NOT', 'NEQ'):
                 return left is not right
             raise FatalError(
-                f"comparison: 'none' values only support = and !=", line)
+                "A 'none' value can only be compared with '=' or '!='. Use '= none' or '!= none'.", line)
 
         # Normalize date/time tuples for comparison
         if isinstance(left, tuple):
@@ -2003,19 +2030,19 @@ class VernExecutor:
             return fn(left, right)
         except TypeError:
             raise FatalError(
-                f"comparison: type mismatch ({self._type_name(left)}, {self._type_name(right)})",
+                f"Cannot compare a {self._type_name(left)} value with a {self._type_name(right)} value. Both sides must be the same type.",
                 line)
 
     # ── Type helpers ───────────────────────────────────────────────────────────
 
     def _to_number(self, val, line: int = 0) -> float:
         if type(val) is bool:
-            raise FatalError(f"expected number, got true/false", line)
+            raise FatalError("A number was expected here, but the value is true/false. Convert it or use a number value.", line)
         if isinstance(val, float):
             return val
         if isinstance(val, int):
             return float(val)
-        raise FatalError(f"expected number, got {self._type_name(val)}", line)
+        raise FatalError(f"A number was expected here, but the value is {self._type_name(val)}.", line)
 
     def _list_item_type(self, lst_name: str) -> Optional[str]:
         """Return the VERN type of items in a named list, or None if empty."""
@@ -2035,6 +2062,8 @@ class VernExecutor:
             return val[0]
         if isinstance(val, dict):
             return 'dictionary'
+        if isinstance(val, ScriptDef):
+            return 'script'
         return type(val).__name__
 
     def _to_display(self, val) -> str:
@@ -2065,8 +2094,8 @@ class VernExecutor:
                 try:
                     return float(val)
                 except ValueError:
-                    raise FatalError(f"cannot convert '{val}' to number", line)
-            raise FatalError(f"cannot convert {src} to number", line)
+                    raise FatalError(f"'{val}' cannot be converted to a number. The text must contain only a valid number.", line)
+            raise FatalError(f"A {src} value cannot be converted to a number.", line)
         elif target_type == 'text':
             if src == 'number':
                 return self._to_display(val)
@@ -2080,15 +2109,15 @@ class VernExecutor:
                 import re
                 if re.match(r'^\d{4}-\d{2}-\d{2}$', val):
                     return ('date', val)
-                raise FatalError(f"cannot convert '{val}' to date: must be YYYY-MM-DD", line)
-            raise FatalError(f"cannot convert {src} to date", line)
+                raise FatalError(f"'{val}' cannot be converted to a date. The text must be in the format YYYY-MM-DD.", line)
+            raise FatalError(f"A {src} value cannot be converted to a date.", line)
         elif target_type == 'time':
             if src == 'text':
                 import re
                 if re.match(r'^\d{2}:\d{2}:\d{2}$', val):
                     return ('time', val)
-                raise FatalError(f"cannot convert '{val}' to time: must be HH:MI:SS", line)
-            raise FatalError(f"cannot convert {src} to time", line)
+                raise FatalError(f"'{val}' cannot be converted to a time. The text must be in the format HH:MI:SS.", line)
+            raise FatalError(f"A {src} value cannot be converted to a time.", line)
         raise FatalError(f"unknown target type: {target_type}", line)
 
     # ── Trig ───────────────────────────────────────────────────────────────────
@@ -2114,14 +2143,12 @@ class VernExecutor:
                         if (abs(norm - math.pi / 2) < 1e-10 or
                                 abs(norm - 3 * math.pi / 2) < 1e-10):
                             raise FatalError(
-                                f"tangent: undefined at {args[0]:.6g} radians "
-                                f"— tangent of 90° and 270° is undefined.", line)
+                                f"'tangent' is undefined at {args[0]:.6g} radians (equivalent to 90° or 270°).", line)
                     else:
                         norm = args[0] % 360.0
                         if norm in (90.0, 270.0):
                             raise FatalError(
-                                f"tangent: undefined at {args[0]:.4g}° "
-                                f"— tangent of 90° and 270° is undefined.", line)
+                                f"'tangent' is undefined at {args[0]:.4g}°.", line)
                 angle = args[0] if use_radians else math.radians(args[0])
                 return simple[func](angle)
             elif func == 'arctangent':
@@ -2143,15 +2170,13 @@ class VernExecutor:
             # Python math domain errors — convert each to a spec-matching FatalError
             domain_msgs = {
                 'arcsine':
-                    f"arcsine: value {args[0]} is outside the valid domain -1 to 1.",
+                    f"'arcsine' requires a value between -1 and 1, but got {args[0]}.",
                 'arccosine':
-                    f"arccosine: value {args[0]} is outside the valid domain -1 to 1.",
+                    f"'arccosine' requires a value between -1 and 1, but got {args[0]}.",
                 'arc hyperbolic tangent':
-                    f"arc hyperbolic tangent: value {args[0]} "
-                    f"is outside the valid domain -1 to 1.",
+                    f"'arc hyperbolic tangent' requires a value strictly between -1 and 1, but got {args[0]}.",
                 'arc hyperbolic cosine':
-                    f"arc hyperbolic cosine: value {args[0]} "
-                    f"must be 1 or greater.",
+                    f"'arc hyperbolic cosine' requires a value of 1 or greater, but got {args[0]}.",
             }
             msg = domain_msgs.get(func, f"{func}: math domain error.")
             raise FatalError(msg, line)
@@ -2160,11 +2185,11 @@ class VernExecutor:
 
     def _diff_between(self, v1, v2, unit: str, line: int) -> float:
         if not (isinstance(v1, tuple) and isinstance(v2, tuple)):
-            raise FatalError("difference between: values must be date or time", line)
+            raise FatalError("'difference between' requires two date values or two time values.", line)
         kind1, raw1 = v1
         kind2, raw2 = v2
         if kind1 != kind2:
-            raise FatalError("difference between: type mismatch (date vs time)", line)
+            raise FatalError("'difference between' cannot mix a date value and a time value. Both must be the same type.", line)
         if kind1 == 'date':
             from datetime import date
             d1 = date.fromisoformat(raw1)
@@ -2186,7 +2211,7 @@ class VernExecutor:
     def _format_datetime(self, val, fmt_str: str, line: int) -> str:
         import re as _re
         if not isinstance(val, tuple):
-            raise FatalError("format: value is not date or time", line)
+            raise FatalError("'format' with 'using' requires a date or time value. For formatting numbers, use 'decimals', 'thousands', or 'padded' instead.", line)
         kind, raw = val
         if kind == 'date':
             # Detect invalid codes BEFORE replacement to avoid substring collisions
@@ -2196,8 +2221,8 @@ class VernExecutor:
             unknown = sorted(found - valid)
             if unknown:
                 self._log(
-                    f"format date: unrecognized format code(s) {unknown} "
-                    f"— passed through as literal text.", line)
+                    f"Unrecognized date format code(s) {unknown} — passed through as literal text. "
+                    f"Valid codes are YYYY, MO, and DD.", line)
             year, mo, dd = raw.split('-')
             return fmt_str.replace('YYYY', year).replace('MO', mo).replace('DD', dd)
         elif kind == 'time':
@@ -2206,8 +2231,8 @@ class VernExecutor:
             unknown = sorted(found - valid)
             if unknown:
                 self._log(
-                    f"format time: unrecognized format code(s) {unknown} "
-                    f"— passed through as literal text.", line)
+                    f"Unrecognized time format code(s) {unknown} — passed through as literal text. "
+                    f"Valid codes are HH, MI, and SS.", line)
             hh, mi, ss = raw.split(':')
             return fmt_str.replace('HH', hh).replace('MI', mi).replace('SS', ss)
         raise FatalError(f"format: unknown kind '{kind}'", line)
@@ -2220,12 +2245,11 @@ class VernExecutor:
                 self._eval_expr(decimals_expr, scope, loop_ctx, container_tag), line)
             if raw_d != int(raw_d):
                 raise FatalError(
-                    f"format: decimals value must be a whole number, "
-                    f"got {self._to_display(raw_d)}.", line)
+                    f"The value after 'decimals' must be a whole number, but got {self._to_display(raw_d)}.", line)
             d = int(raw_d)
             if d < 0:
                 raise FatalError(
-                    f"format: decimals value must be 0 or greater, got {d}.", line)
+                    f"The value after 'decimals' must be 0 or greater, but got {d}.", line)
             s = f"{val:.{d}f}"
         else:
             if val == int(val) and not math.isinf(val):
@@ -2259,12 +2283,11 @@ class VernExecutor:
                 self._eval_expr(padded_expr, scope, loop_ctx, container_tag), line)
             if raw_p != int(raw_p):
                 raise FatalError(
-                    f"format: padded value must be a whole number, "
-                    f"got {self._to_display(raw_p)}.", line)
+                    f"The value after 'padded' must be a whole number, but got {self._to_display(raw_p)}.", line)
             p = int(raw_p)
             if p <= 0:
                 raise FatalError(
-                    f"format: padded value must be greater than 0, got {p}.", line)
+                    f"The value after 'padded' must be greater than 0, but got {p}.", line)
             s = s.rjust(p)
 
         return s
@@ -2278,7 +2301,7 @@ class VernExecutor:
             for imp in self.imported:
                 if name in imp.lists:
                     return imp.lists[name]
-        raise FatalError(f"list '{name}' not found")
+        raise FatalError(f"'{name}' is not a declared list. Declare it at the file level before using it.")
 
     def _get_list_mut(self, name: str, file_ref, line: int) -> list:
         if name in self.lists:
@@ -2287,7 +2310,7 @@ class VernExecutor:
             for imp in self.imported:
                 if name in imp.lists:
                     return imp.lists[name]
-        raise FatalError(f"list '{name}' not found", line)
+        raise FatalError(f"'{name}' is not a declared list. Declare it at the file level before using it.", line)
 
     def _get_dict(self, name: str, file_ref, line: int = 0) -> OrderedDict:
         if name in self.dicts:
@@ -2296,12 +2319,12 @@ class VernExecutor:
             for imp in self.imported:
                 if name in imp.dicts:
                     return imp.dicts[name]
-        raise FatalError(f"dictionary '{name}' not found", line)
+        raise FatalError(f"'{name}' is not a declared dictionary. Declare it at the file level before using it.", line)
 
     def _get_dict_mut(self, name: str, line: int) -> OrderedDict:
         if name in self.dicts:
             return self.dicts[name]
-        raise FatalError(f"dictionary '{name}' not found", line)
+        raise FatalError(f"'{name}' is not a declared dictionary. Declare it at the file level before using it.", line)
 
     # ── File path resolution ───────────────────────────────────────────────────
 

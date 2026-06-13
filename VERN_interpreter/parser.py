@@ -78,10 +78,10 @@ class Parser:
     def _expect(self, *types: str) -> Token:
         t = self._peek()
         if t is None:
-            raise ParseError(f"expected {' or '.join(types)} but reached end of input", -1)
+            raise ParseError(f"The program ended unexpectedly. {' or '.join(types)} was expected next.", -1)
         if t.type not in types:
             raise ParseError(
-                f"expected {' or '.join(types)}, got {t.type} ({t.value!r})",
+                f"'{t.value}' cannot appear here. {' or '.join(types)} was expected.",
                 t.line,
             )
         return self._advance()
@@ -100,7 +100,7 @@ class Parser:
         """Parse a single value atom."""
         t = self._peek()
         if t is None:
-            raise ParseError("expected a value but reached end of input", -1)
+            raise ParseError("The program ended unexpectedly. A value reference was expected here.", -1)
         line = t.line
 
         if t.type == "REFERENCE":
@@ -174,7 +174,7 @@ class Parser:
             attr_t = self._peek()
             if attr_t is None or attr_t.line != line:
                 raise ParseError(
-                    "'request' must be followed by 'body', 'path', 'headers', or 'method'",
+                    "'request' must be followed by 'body', 'path', 'headers', or 'method' on the same line.",
                     line)
             if attr_t.type == "PATH":
                 self._advance()
@@ -190,10 +190,33 @@ class Parser:
                 return RequestRef(attribute='method', line=line)
             else:
                 raise ParseError(
-                    f"'request' must be followed by 'body', 'path', 'headers', or 'method', "
-                    f"got {attr_t.value!r}", line)
+                    f"'{attr_t.value}' is not a valid request attribute. "
+                    f"Use 'request body', 'request path', 'request headers', or 'request method'.", line)
 
-        raise ParseError(f"expected a value, got {t.type} ({t.value!r})", line)
+        if t.type == "LPAREN":
+            paren_line = t.line
+            self._advance()
+            if self._check("RPAREN"):
+                raise ParseError(
+                    "Empty parentheses '()' are not valid. An expression is required inside.",
+                    paren_line)
+            inner = self._parse_expr(line_no=paren_line)
+            rp = self._peek()
+            if rp is None or rp.type != "RPAREN":
+                raise ParseError(
+                    "An opening parenthesis '(' was not matched with a closing ')'. "
+                    "Add the missing closing parenthesis.",
+                    paren_line)
+            self._advance()
+            return inner
+
+        if t.type == "RPAREN":
+            raise ParseError(
+                "An unexpected closing parenthesis ')' was found. "
+                "Check that all opening parentheses are matched.",
+                t.line)
+
+        raise ParseError(f"'{t.value}' cannot be used as a value here.", line)
 
     def _parse_expr(self, line_no: Optional[int] = None) -> Any:
         """
@@ -246,7 +269,7 @@ class Parser:
         """Parse one comparison/membership/exist/starts_with/ends_with/not cond."""
         t = self._peek()
         if t is None:
-            raise ParseError("expected a condition", -1)
+            raise ParseError("The program ended unexpectedly. A condition was expected here.", -1)
         line = t.line
 
         # not <cond>
@@ -263,7 +286,7 @@ class Parser:
             if t2 and t2.type == "EXIST" and t2.line == line_no:
                 self._advance()
                 return PathExistCheck(ref=ref, line=line)
-            raise ParseError("'path' in condition must be followed by 'exist'", line)
+            raise ParseError("'path' in an 'if' statement must be followed by 'exist'. Write: 'if path .filename exist'.", line)
 
         # not in used as prefix check — already handled by tokenizer as NOT_IN
         # so we won't see bare NOT here for membership
@@ -311,7 +334,7 @@ class Parser:
         """After 'is in' or 'not in', parse collection specifier."""
         t = self._peek()
         if t is None:
-            raise ParseError("expected 'list', 'dictionary', or a reference after membership operator", line)
+            raise ParseError("'is in' and 'not in' must be followed by 'list', 'dictionary', or a value reference.", line)
 
         if t.type == "LIST":
             self._advance()
@@ -334,7 +357,7 @@ class Parser:
                                collection_kind="text", collection=ref,
                                file_ref=None, line=line)
 
-        raise ParseError(f"unexpected token {t.type} after membership operator", line)
+        raise ParseError(f"'{t.value}' cannot follow a membership check. Use 'list', 'dictionary', or a value reference.", line)
 
     def _parse_value_ref(self) -> ValueRef:
         """Parse a REFERENCE token — no inline container tag.
@@ -371,14 +394,14 @@ class Parser:
         """Parse one instruction and return its AST node."""
         t = self._peek()
         if t is None:
-            raise ParseError("expected an instruction but reached end of input", -1)
+            raise ParseError("The program ended unexpectedly. An instruction was expected here.", -1)
         line = t.line
         tt = t.type
 
         # ── Script definition (file-level only) ────────────────────────────────
         if tt == "SCRIPT":
             if self._in_script and not allow_file_level:
-                raise ParseError("script definitions cannot be nested inside another script", line)
+                raise ParseError("Scripts cannot be defined inside other scripts. Move this script definition to the file level.", line)
             return self._parse_script_def()
 
         # ── Container definition (file-level only) ─────────────────────────────
@@ -492,7 +515,7 @@ class Parser:
 
         handler = dispatch.get(tt)
         if handler is None:
-            raise ParseError(f"unexpected token {tt} ({t.value!r}) — not a valid instruction start", line)
+            raise ParseError(f"'{t.value}' is not a recognised instruction. Check the spelling or remove this line.", line)
         return handler()
 
     # ── File-level parse ───────────────────────────────────────────────────────
@@ -548,7 +571,7 @@ class Parser:
         """
         t = self._peek()
         if t is None:
-            raise ParseError("expected parameter", -1)
+            raise ParseError("'takes' must be followed by one or more parameter names.", -1)
         if t.type == "LIST":
             self._advance()
             name = self._expect("IDENTIFIER").value
@@ -574,7 +597,7 @@ class Parser:
         """
         t = self._peek()
         if t is None:
-            raise ParseError("expected argument", -1)
+            raise ParseError("'with' must be followed by one or more values to pass to the script.", -1)
         if t.type == "LIST":
             self._advance()
             name = self._expect("IDENTIFIER").value
@@ -635,7 +658,7 @@ class Parser:
             node = self._parse_instruction()
             if not isinstance(node, SetInstr):
                 raise ParseError(
-                    f"containers may only contain 'set' instructions, got {type(node).__name__}",
+                    "Containers may only contain 'set' instructions. Remove or move any other instruction.",
                     node.line,
                 )
             body.append(node)
@@ -669,7 +692,7 @@ class Parser:
                 items.append(self._parse_atom())
             else:
                 raise ParseError(
-                    f"invalid item in list declaration: {t.type} ({t.value!r})",
+                    f"'{t.value}' is not a valid list item. List items must be text values in quotes, whole numbers, or names of declared dictionaries.",
                     item_line,
                 )
 
@@ -933,7 +956,7 @@ class Parser:
         self._expect("REPEAT_THROUGH")
         t = self._peek()
         if t is None:
-            raise ParseError("expected LIST or DICTIONARY after 'repeat through'", line)
+            raise ParseError("'repeat through' must be followed by 'list' or 'dictionary'.", line)
 
         if t.type == "LIST":
             self._advance()
@@ -959,7 +982,7 @@ class Parser:
             return RepeatThroughDictBlock(dict_name=name, file_ref=file_ref,
                                           body=body, line=line)
 
-        raise ParseError(f"expected LIST or DICTIONARY after 'repeat through', got {t.type}", line)
+        raise ParseError(f"'{t.value}' cannot follow 'repeat through'. Write 'repeat through list name' or 'repeat through dictionary name'.", line)
 
     # ── Attempt / error recovery ───────────────────────────────────────────────
 
@@ -1024,14 +1047,14 @@ class Parser:
             self._advance()   # consume WAIT
             num_t = self._advance()   # consume number
             if '.' in num_t.value:
-                raise ParseError("wait: duration must be a whole number", line)
+                raise ParseError("'wait' requires a whole number of seconds or milliseconds. Decimal values are not allowed.", line)
             duration = int(num_t.value)
             if duration <= 0:
-                raise ParseError("wait: duration must be greater than zero", line)
+                raise ParseError("'wait' requires a duration greater than zero.", line)
             unit_t = self._peek()
             if unit_t is None or unit_t.line != line or unit_t.type not in ("SECONDS", "MILLISECONDS"):
                 raise ParseError(
-                    "wait: duration must be followed by 'seconds' or 'milliseconds'", line)
+                    f"'wait' requires a time unit. Write 'wait {duration} seconds' or 'wait {duration} milliseconds'.", line)
             unit = self._advance().value   # 'seconds' or 'milliseconds'
             return WaitInstr(duration=duration, unit=unit, line=line)
         # Fall through to execution mode (wait reset / wait keep)
@@ -1044,7 +1067,7 @@ class Parser:
         t = self._peek()
         if t is None or t.line != line or t.type not in ("RESET", "KEEP"):
             raise ParseError(
-                f"'{first}' must be followed by 'reset' or 'keep' on the same line",
+                f"'{first}' must be followed by 'reset' or 'keep' on the same line. Write '{first} reset' or '{first} keep'.",
                 line)
         second = self._advance().value   # 'reset' or 'keep'
         return ExecutionModeDecl(mode=f"{first}_{second}", line=line)
@@ -1054,7 +1077,7 @@ class Parser:
         line = self._advance().line   # consume SERVE
         port_t = self._expect("NUMBER_LITERAL")
         if '.' in port_t.value:
-            raise ParseError("serve: port must be a whole number", line)
+            raise ParseError("The port number after 'serve' must be a whole number, like 'serve 8080'.", line)
         return ServeDecl(port=int(port_t.value), line=line)
 
     def _parse_route(self) -> RouteDecl:
@@ -1090,7 +1113,7 @@ class Parser:
             self._advance()
             t = self._expect("NUMBER_LITERAL")
             if '.' in t.value:
-                raise ParseError("respond: status code must be a whole number", base_line)
+                raise ParseError("The status code after 'status' must be a whole number, like 'status 200'.", base_line)
             return int(t.value)
         return None
 
@@ -1130,7 +1153,7 @@ class Parser:
                 key = self._parse_atom()
                 return PutDictInDict(dict_name=dict_name, target_dict=target,
                                      key=key, line=line)
-            raise ParseError("expected 'list' or 'dictionary' after 'put dictionary <name> in'", line)
+            raise ParseError("'put dictionary name in' must be followed by 'list' or 'dictionary'.", line)
 
         # put .value in list/dictionary
         value = self._parse_atom()
@@ -1155,7 +1178,7 @@ class Parser:
             return PutInDict(value=value, dict_ref=dict_ref, key=key,
                              file_ref=file_ref, line=line)
 
-        raise ParseError("expected 'list' or 'dictionary' after 'put <value> in'", line)
+        raise ParseError("'put' must be followed by 'list' or 'dictionary' to indicate where to add the value.", line)
 
     def _parse_remove(self) -> Any:
         line = self._peek().line
@@ -1183,7 +1206,7 @@ class Parser:
         self._expect("GET")
         t = self._peek()
         if t is None:
-            raise ParseError("expected DATE, TIME, FILES, LIST, or DICTIONARY after 'get'", line)
+            raise ParseError("'get' must be followed by 'date', 'time', 'files', 'list', or 'dictionary'.", line)
 
         # get date as .today
         if t.type == "DATE":
@@ -1233,14 +1256,14 @@ class Parser:
             result = self._parse_value_ref()
             return GetDictItem(dict_ref=dict_ref, key=key, result=result, line=line)
 
-        raise ParseError(f"unexpected token {t.type} after 'get'", line)
+        raise ParseError(f"'{t.value}' cannot follow 'get'. Use 'get date', 'get time', 'get files', 'get list', or 'get dictionary'.", line)
 
     def _parse_count(self) -> Any:
         line = self._peek().line
         self._expect("COUNT")
         t = self._peek()
         if t is None:
-            raise ParseError("expected LIST or DICTIONARY after 'count'", line)
+            raise ParseError("'count' must be followed by 'list' or 'dictionary'.", line)
 
         if t.type == "LIST":
             self._advance()
@@ -1257,7 +1280,7 @@ class Parser:
             result = self._parse_value_ref()
             return CountDict(dict_name=name, result=result, line=line)
 
-        raise ParseError(f"unexpected token {t.type} after 'count'", line)
+        raise ParseError(f"'{t.value}' cannot follow 'count'. Write 'count list name' or 'count dictionary name'.", line)
 
     def _parse_sort(self) -> SortList:
         line = self._peek().line
@@ -1607,7 +1630,7 @@ class Parser:
             else:
                 break
         if not found_mod:
-            raise ParseError("format instruction requires USING, DECIMALS, THOUSANDS, or PADDED", line)
+            raise ParseError("'format' requires at least one modifier. For dates and times use 'using'; for numbers use 'decimals', 'thousands', or 'padded'.", line)
         return FormatNumberInstr(value=value, result=result, decimals=decimals,
                                  thousands=thousands, padded=padded, line=line)
 
