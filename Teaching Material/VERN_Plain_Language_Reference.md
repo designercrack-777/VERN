@@ -96,7 +96,7 @@ Stops the program. VERN adds `stop` automatically at the end of every file, but 
 A value holds one piece of data. Its type — text, number, true/false, date, time — is determined by what you put in it.
 
 | Type | Example | What it's for |
-|---|---|---|
+| --- | --- | --- |
 | Text | `"hello"` | words, sentences, anything in quotes |
 | Number | `42` or `3.14` | math and counting |
 | True/False | `true` or `false` | yes/no decisions |
@@ -192,7 +192,7 @@ sign .number as .result            // returns -1, 0, or 1
 These are built in and ready to use anywhere a number is valid:
 
 | Constant | Value |
-|---|---|
+| --- | --- |
 | `pi` | 3.14159... |
 | `e` | 2.71828... |
 | `tau` | 6.28318... (2π) |
@@ -257,7 +257,7 @@ Comparisons are used in `if` and `while` statements to check conditions.
 Both word and symbol forms work:
 
 | Word form | Symbol | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | `is equal to` | `=` | equal |
 | `is not` | `!=` | not equal |
 | `is greater than` | `>` | greater than |
@@ -882,6 +882,35 @@ Files at an absolute path from system root:
 
 Every folder name must be followed by `.folder`. `.parent` means system root — use it once at the end of the chain.
 
+### Listing Files in a Directory
+
+Returns all files in a directory as a list of text values. Each item is a filename including its extension. An empty directory returns an empty list.
+
+```
+get files in .foldername.folder as list filenames
+get files in .parent as list filenames
+get files in current folder as list filenames
+```
+
+`current folder` refers to the directory the program file itself lives in — not where VERN was launched from. It requires no chain and no period prefix.
+
+```
+list filenames
+end list
+
+script .main
+    get files in current folder as list filenames
+    repeat through list filenames
+        show current item
+    end repeat
+end script
+
+start at .main.script
+stop
+```
+
+`get files` returns all files regardless of extension. To work with only a specific type, filter the list using string operations after retrieval.
+
 ---
 
 ## Networking
@@ -1308,6 +1337,7 @@ inspect json .response
 ```
 
 Output:
+
 ```
 dictionary — 3 keys
   "city" — text
