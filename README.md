@@ -1,6 +1,6 @@
 # VERN
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20646051.svg)](https://doi.org/10.5281/zenodo.20646051)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20708673.svg)](https://doi.org/10.5281/zenodo.20708673)
 
 **A universal imperative programming grammar with replaceable vocabulary bindings.**
 
@@ -15,6 +15,7 @@ VERN is not a programming language in English. It is a universal imperative gram
 Existing programming languages require users to learn English keywords as a prerequisite to computation. Internationalization efforts translate user interfaces and documentation — but the code itself remains English. VERN makes the executable vocabulary the localization target. A programmer writes code in their own language. The machine runs it.
 
 This is distinct from:
+
 - **i18n** — translating UI strings while code stays English
 - **l10n** — adapting regional formats while code stays English
 - **DSLs** — specialized English vocabulary for specific domains
@@ -27,9 +28,9 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 ## Repository Contents
 
 | Document | Description |
-|---|---|
-| `VERN_Invariant_Grammar_v0_7_7.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_7_7.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
+| --- | --- |
+| `VERN_Invariant_Grammar_v0_7_8.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_7_8.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, current folder directory reference, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
 | `vern_installer.iss` | Inno Setup script for building the Windows installer. |
 
 ---
@@ -85,6 +86,8 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 ---
 
 ## Key Features
+
+**Current folder reference** — `current folder` resolves to the directory the program file itself lives in, regardless of where VERN was launched from. Used in file listing and directory operations. Requires no chain and no period prefix.
 
 **Execution modes** — four program lifecycle behaviors beyond run-once: `wait reset`, `wait keep`, `cycle reset`, `cycle keep`. Programs can loop immediately, pause for input between cycles, and carry or reset state across cycles. Stop conditions at the bottom of the file provide clean, auditable exit logic.
 
@@ -152,9 +155,9 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Download
 
-**[Download VERN v0.7.7 for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.7.7)**
+**[Download VERN v0.7.8 for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.7.8)**
 
-Run `vern_setup_v0.7.7.exe`, follow the installer, open a new terminal and type `vern` to confirm. No Python or other dependencies required.
+Run `vern_setup_v0.7.8.exe`, follow the installer, open a new terminal and type `vern` to confirm. No Python or other dependencies required.
 
 Mac and Linux builds are not yet packaged. The interpreter source is cross-platform — build from source using PyInstaller.
 
@@ -162,9 +165,9 @@ Mac and Linux builds are not yet packaged. The interpreter source is cross-platf
 
 ## Status
 
-**Current version: v0.7.7 — Specification complete. Interpreter complete. Windows installer available.**
+**Current version: v0.7.8 — Specification complete. Interpreter complete. Windows installer available.**
 
-The interpreter implements every v0.7.7 feature and is distributed as a standalone Windows executable with a proper installer. No Python or dependencies required.
+The interpreter implements every v0.7.8 feature and is distributed as a standalone Windows executable with a proper installer. No Python or dependencies required.
 
 ---
 
@@ -176,7 +179,7 @@ VERN is free for personal, educational, and non-commercial use. Commercial use r
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_7.md`. Zenodo deposit: https://doi.org/10.5281/zenodo.20646051
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_8.md`. Zenodo deposit: https://doi.org/10.5281/zenodo.20708673
 
 ---
 
