@@ -155,7 +155,7 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Download
 
-**[Download VERN v0.7.8 for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.7.8)**
+**[Download VERN v0.7.8-bugfix for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.7.8-bugfix)**
 
 Run `vern_setup_v0.7.8.exe`, follow the installer, open a new terminal and type `vern` to confirm. No Python or other dependencies required.
 
