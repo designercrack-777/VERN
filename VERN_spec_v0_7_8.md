@@ -286,15 +286,15 @@ file → container → value → data
 
 A period must be placed before every classifier in the chain. The period signals that something smaller belongs to what follows it. Every named element — value, script, file — receives a period prefix because each either contains something smaller or belongs to something larger.
 
-| Thing           | Descriptor | Example              |
-| --------------- | ---------- | -------------------- |
-| File (external) | `.vern`    | `.utilities.vern`    |
-| File (current)  | name only  | `.utilities`         |
-| Script          | `.script`  | `.scriptname.script` |
-| Container       | `#` prefix | `#english`           |
-| Value           | none       | `.valuename`         |
-| Folder          | `.folder`  | `.subfolder.folder`  |
-| System root     | `.parent`  | `.parent`            |
+| Thing | Descriptor | Example |
+| --- | --- | --- |
+| File (external) | `.vern` | `.utilities.vern` |
+| File (current) | name only | `.utilities` |
+| Script | `.script` | `.scriptname.script` |
+| Container | `#` prefix | `#english` |
+| Value | none | `.valuename` |
+| Folder | `.folder` | `.subfolder.folder` |
+| System root | `.parent` | `.parent` |
 
 ### Reference Chain Examples
 
@@ -611,7 +611,9 @@ Reverses the order of items in a list and assigns the result to a new named list
 slice list names 2 to 4 as list subset
 ```
 
-Extracts a portion of a list by position range and assigns the result to a new named list. Both positions are inclusive. Positions begin at 1. The original list is unchanged. The target list must be declared before `slice` is called. Position arguments accept literal numbers or value references that hold numbers.
+Extracts a portion of a list by position range and assigns the result to a new named list. Both positions are inclusive. Positions begin at 1. The original list is unchanged. The target list must be declared before `slice` is called.
+
+Position arguments accept literal numbers, value references that hold numbers, or arithmetic expressions that produce a number.
 
 ```
 list names
@@ -805,14 +807,14 @@ set .valuename to data
 
 ### Data Types
 
-| Type       | Example          | Valid Operations                             |
-| ---------- | ---------------- | -------------------------------------------- |
-| Text       | `"Gabriel"`      | display, combine, compare, string operations |
-| Number     | `34`             | math, compare                                |
-| True/False | `true` / `false` | logic, compare                               |
-| Date       | `2026-06-02`     | compare, difference, format                  |
-| Time       | `14:30:00`       | compare, difference, format                  |
-| None       | `none`           | compare with `=` and `!=` only               |
+| Type | Example | Valid Operations |
+| --- | --- | --- |
+| Text | `"Gabriel"` | display, combine, compare, string operations |
+| Number | `34` | math, compare |
+| True/False | `true` / `false` | logic, compare |
+| Date | `2026-06-02` | compare, difference, format |
+| Time | `14:30:00` | compare, difference, format |
+| None | `none` | compare with `=` and `!=` only |
 
 The type is determined by what is assigned. The language enforces valid operations based on the type.
 
@@ -842,22 +844,22 @@ If the value cannot be converted — for example, converting the text `"hello"` 
 
 ### Full Conversion Type Matrix
 
-| From   | To     | Valid                                           |
-| ------ | ------ | ----------------------------------------------- |
-| Text   | Number | Yes — fatal if text is not a valid number       |
-| Text   | Date   | Yes — fatal if text is not exactly `YYYY-MM-DD` |
-| Text   | Time   | Yes — fatal if text is not exactly `HH:MI:SS`   |
-| Number | Text   | Yes                                             |
-| Date   | Text   | Yes — produces raw `YYYY-MM-DD` string          |
-| Time   | Text   | Yes — produces raw `HH:MI:SS` string            |
-| Number | Date   | No — fatal                                      |
-| Number | Time   | No — fatal                                      |
-| Date   | Number | No — fatal                                      |
-| Time   | Number | No — fatal                                      |
-| Date   | Time   | No — fatal                                      |
-| Time   | Date   | No — fatal                                      |
-| None   | Any    | No — fatal. Assign a real value before converting. |
-| Any    | None   | No — fatal. `none` is assigned directly, not converted to. |
+| From | To  | Valid |
+| --- | --- | --- |
+| Text | Number | Yes — fatal if text is not a valid number |
+| Text | Date | Yes — fatal if text is not exactly `YYYY-MM-DD` |
+| Text | Time | Yes — fatal if text is not exactly `HH:MI:SS` |
+| Number | Text | Yes |
+| Date | Text | Yes — produces raw `YYYY-MM-DD` string |
+| Time | Text | Yes — produces raw `HH:MI:SS` string |
+| Number | Date | No — fatal |
+| Number | Time | No — fatal |
+| Date | Number | No — fatal |
+| Time | Number | No — fatal |
+| Date | Time | No — fatal |
+| Time | Date | No — fatal |
+| None | Any | No — fatal. Assign a real value before converting. |
+| Any | None | No — fatal. `none` is assigned directly, not converted to. |
 
 ---
 
@@ -867,24 +869,24 @@ If the value cannot be converted — for example, converting the text `"hello"` 
 
 Both word and symbol forms are valid and treated as identical by the parser.
 
-| Word       | Symbol | Operation      |
-| ---------- | ------ | -------------- |
-| `add`      | `+`    | addition       |
-| `subtract` | `-`    | subtraction    |
-| `multiply` | `*`    | multiplication |
-| `divide`   | `/`    | division       |
+| Word | Symbol | Operation |
+| --- | --- | --- |
+| `add` | `+` | addition |
+| `subtract` | `-` | subtraction |
+| `multiply` | `*` | multiplication |
+| `divide` | `/` | division |
 
 ### Operator Type Matrix
 
 The `+` operator is polymorphic. Its behavior depends on the types of both operands:
 
-| Left   | Right  | Result | Behavior              |
-| ------ | ------ | ------ | --------------------- |
-| Number | Number | Number | Arithmetic addition   |
-| Text   | Text   | Text   | String concatenation  |
-| Text   | Number | Fatal  | No implicit coercion  |
-| Number | Text   | Fatal  | No implicit coercion  |
-| Other  | Any    | Fatal  | Unsupported operation |
+| Left | Right | Result | Behavior |
+| --- | --- | --- | --- |
+| Number | Number | Number | Arithmetic addition |
+| Text | Text | Text | String concatenation |
+| Text | Number | Fatal | No implicit coercion |
+| Number | Text | Fatal | No implicit coercion |
+| Other | Any | Fatal | Unsupported operation |
 
 All other math operators (`-`, `*`, `/`) are strictly numeric. There is no implicit type coercion anywhere in the language.
 
@@ -971,14 +973,14 @@ if .score > 90 and .attempts < 3 then show "excellent"
 
 ### Comparison Operators
 
-| Word Form                     | Symbol | Meaning          |
-| ----------------------------- | ------ | ---------------- |
-| `is equal to`                 | `=`    | equal            |
-| `is not`                      | `!=`   | not equal        |
-| `is greater than`             | `>`    | greater than     |
-| `is less than`                | `<`    | less than        |
-| `is greater than or equal to` | `>=`   | greater or equal |
-| `is less than or equal to`    | `<=`   | less or equal    |
+| Word Form | Symbol | Meaning |
+| --- | --- | --- |
+| `is equal to` | `=` | equal |
+| `is not` | `!=` | not equal |
+| `is greater than` | `>` | greater than |
+| `is less than` | `<` | less than |
+| `is greater than or equal to` | `>=` | greater or equal |
+| `is less than or equal to` | `<=` | less or equal |
 
 Comparison operators work on date and time values — earlier dates and times are less than later ones.
 
@@ -999,12 +1001,12 @@ These compound operators are indivisible. The individual words within them are n
 
 ### Boolean Logic
 
-| Keyword  | Meaning                             |
-| -------- | ----------------------------------- |
-| `and`    | both conditions must be true        |
-| `or`     | at least one condition must be true |
-| `not`    | inverts a true/false state          |
-| `is not` | compares two values for inequality  |
+| Keyword | Meaning |
+| --- | --- |
+| `and` | both conditions must be true |
+| `or` | at least one condition must be true |
+| `not` | inverts a true/false state |
+| `is not` | compares two values for inequality |
 
 `not` inverts an existing true/false value. `is not` compares two values directly. These are distinct operations.
 
@@ -1247,12 +1249,12 @@ Returns the logarithm of the value in the specified base. The base accepts a lit
 
 VERN provides four reserved numeric constants. Constants carry no period prefix and cannot be assigned to. They are read-only and available anywhere a number value is valid.
 
-| Constant   | Value               | Meaning                                           |
-| ---------- | ------------------- | ------------------------------------------------- |
-| `pi`       | 3.14159265358979... | ratio of a circle's circumference to its diameter |
-| `e`        | 2.71828182845904... | base of the natural logarithm                     |
-| `tau`      | 6.28318530717958... | 2π — full circle in radians                       |
-| `infinity` | ∞                   | positive infinity                                 |
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `pi` | 3.14159265358979... | ratio of a circle's circumference to its diameter |
+| `e` | 2.71828182845904... | base of the natural logarithm |
+| `tau` | 6.28318530717958... | 2π — full circle in radians |
+| `infinity` | ∞   | positive infinity |
 
 ```
 set .result to pi * .radius power 2
@@ -1405,24 +1407,24 @@ sign .temperature as .direction
 
 ### Input
 
-| Command                                     | Meaning                                        |
-| ------------------------------------------- | ---------------------------------------------- |
-| `ask .valuename`                            | prompt user for text input, store in valuename |
-| `read .valuename from .filename.vern`       | read a single value from a file                |
-| `read .value1, .value2 from .filename.vern` | read multiple values from a file in order      |
+| Command | Meaning |
+| --- | --- |
+| `ask .valuename` | prompt user for text input, store in valuename |
+| `read .valuename from .filename.vern` | read a single value from a file |
+| `read .value1, .value2 from .filename.vern` | read multiple values from a file in order |
 
 `ask` always stores user input as text regardless of what the user types. Use `convert` to change the type before performing math or other numeric operations.
 
 ### Output
 
-| Command                                     | Meaning                             |
-| ------------------------------------------- | ----------------------------------- |
-| `show .value`                               | display a single value to screen    |
-| `show .value1, .value2, .value3`            | display multiple values in order    |
-| `write .value to .filename.vern`            | overwrite file with value           |
-| `write .value1, .value2 to .filename.vern`  | overwrite file with multiple values |
-| `append .value to .filename.vern`           | add value to end of existing file   |
-| `append .value1, .value2 to .filename.vern` | add multiple values to end of file  |
+| Command | Meaning |
+| --- | --- |
+| `show .value` | display a single value to screen |
+| `show .value1, .value2, .value3` | display multiple values in order |
+| `write .value to .filename.vern` | overwrite file with value |
+| `write .value1, .value2 to .filename.vern` | overwrite file with multiple values |
+| `append .value to .filename.vern` | add value to end of existing file |
+| `append .value1, .value2 to .filename.vern` | add multiple values to end of file |
 
 `write` replaces all existing file content. `append` adds to it. Both create the file if it does not exist.
 
@@ -1674,15 +1676,15 @@ Like `exit loop`, `next item` is valid in the inline `if / then` form and inside
 
 `loop` already exists as the implicit loop counter keyword. `item` already exists as the second word of `current item`. Both retain their existing roles — `exit loop` and `next item` are resolved as compounds only when `exit` or `next` precedes them respectively.
 
-| Compound       | Resolution                                               |
-| -------------- | -------------------------------------------------------- |
-| `exit loop`    | exit the current loop immediately                        |
-| `next item`    | skip to the next iteration                               |
-| `loop` alone   | implicit loop counter — existing behavior unchanged      |
+| Compound | Resolution |
+| --- | --- |
+| `exit loop` | exit the current loop immediately |
+| `next item` | skip to the next iteration |
+| `loop` alone | implicit loop counter — existing behavior unchanged |
 | `current item` | implicit current list item — existing behavior unchanged |
-| `item` alone   | not valid as a standalone token                          |
-| `exit` alone   | fatal — must be followed by `loop`                       |
-| `next` alone   | fatal — must be followed by `item`                       |
+| `item` alone | not valid as a standalone token |
+| `exit` alone | fatal — must be followed by `loop` |
+| `next` alone | fatal — must be followed by `item` |
 
 ### Loop Control Error Behaviors
 
@@ -2106,12 +2108,12 @@ Referencing `fail reason` outside an `if fail` block is a fatal error. Attemptin
 
 `fail type` is an implicit read-only two-word keyword available inside any `if fail` block. The interpreter populates it automatically when a failure occurs. It returns one of four category strings:
 
-| Category    | Covers                                                          |
-| ----------- | --------------------------------------------------------------- |
-| `"type"`    | Type conflicts, invalid type conversions                        |
-| `"file"`    | File not found, directory missing, permission denied            |
-| `"network"` | Connection failures, timeouts, invalid URLs                     |
-| `"value"`   | Undefined value references, position out of range, invalid math |
+| Category | Covers |
+| --- | --- |
+| `"type"` | Type conflicts, invalid type conversions |
+| `"file"` | File not found, directory missing, permission denied |
+| `"network"` | Connection failures, timeouts, invalid URLs |
+| `"value"` | Undefined value references, position out of range, invalid math |
 
 ```
 attempt
@@ -2821,15 +2823,15 @@ import .config.json       // fatal
 
 ### Behavior Differences at a Glance
 
-| Operation      | `.vern` files                              | Text extensions                  | Binary extensions              |
-| -------------- | ------------------------------------------ | -------------------------------- | ------------------------------ |
-| `read`         | Line-mapped to values                      | Whole contents as one text value | Fatal                          |
-| `write`        | Writes values line by line                 | Writes text content              | Fatal                          |
-| `append`       | Appends values line by line                | Appends text content             | Fatal                          |
-| `delete`       | Supported                                  | Supported                        | Supported                      |
-| `exist`        | Supported                                  | Supported                        | Supported                      |
-| `import`       | Supported                                  | Fatal                            | Fatal                          |
-| `respond file` | Supported — sends raw source as plain text | Supported                        | Supported — binary passthrough |
+| Operation | `.vern` files | Text extensions | Binary extensions |
+| --- | --- | --- | --- |
+| `read` | Line-mapped to values | Whole contents as one text value | Fatal |
+| `write` | Writes values line by line | Writes text content | Fatal |
+| `append` | Appends values line by line | Appends text content | Fatal |
+| `delete` | Supported | Supported | Supported |
+| `exist` | Supported | Supported | Supported |
+| `import` | Supported | Fatal | Fatal |
+| `respond file` | Supported — sends raw source as plain text | Supported | Supported — binary passthrough |
 
 ### Error Behaviors
 
@@ -2897,15 +2899,15 @@ The result is always a text type value. It is assigned to a new named value via 
 
 ### Valid Return Values
 
-| Type                 | Returns        |
-| -------------------- | -------------- |
-| Text                 | `"text"`       |
-| Number               | `"number"`     |
-| True/False           | `"true/false"` |
-| Date                 | `"date"`       |
-| Time                 | `"time"`       |
+| Type | Returns |
+| --- | --- |
+| Text | `"text"` |
+| Number | `"number"` |
+| True/False | `"true/false"` |
+| Date | `"date"` |
+| Time | `"time"` |
 | Dictionary reference | `"dictionary"` |
-| None                 | `"none"`       |
+| None | `"none"` |
 
 ### Usage with Implicit Loop Keywords
 
@@ -3206,12 +3208,12 @@ Leading whitespace on any line inside a text block is stripped. If leading space
 
 VERN supports four HTTP methods as core language operations.
 
-| Keyword             | HTTP Method | Purpose                                         |
-| ------------------- | ----------- | ----------------------------------------------- |
-| `fetch`             | GET         | Retrieve data from a URL                        |
-| `send`              | POST        | Send data to a URL, create a resource           |
-| `update`            | PUT         | Send data to a URL, update an existing resource |
-| `delete` (URL form) | DELETE      | Tell a URL to remove a resource                 |
+| Keyword | HTTP Method | Purpose |
+| --- | --- | --- |
+| `fetch` | GET | Retrieve data from a URL |
+| `send` | POST | Send data to a URL, create a resource |
+| `update` | PUT | Send data to a URL, update an existing resource |
+| `delete` (URL form) | DELETE | Tell a URL to remove a resource |
 
 ### fetch — HTTP GET
 
@@ -3526,12 +3528,12 @@ parse ini .valuename as dictionary resultname
 
 **Supported formats:**
 
-| Identifier | Format                     | Returns            |
-| ---------- | -------------------------- | ------------------ |
-| `json`     | JavaScript Object Notation | list or dictionary |
-| `csv`      | Comma-Separated Values     | list               |
-| `xml`      | Extensible Markup Language | dictionary         |
-| `ini`      | Configuration file format  | dictionary         |
+| Identifier | Format | Returns |
+| --- | --- | --- |
+| `json` | JavaScript Object Notation | list or dictionary |
+| `csv` | Comma-Separated Values | list |
+| `xml` | Extensible Markup Language | dictionary |
+| `ini` | Configuration file format | dictionary |
 
 Format identifiers are proper nouns — not translated in any language binding.
 
@@ -3775,7 +3777,7 @@ Values holding dictionary references behave as dictionaries for all subsequent o
 
 ---
 
-## v0.7.8 Limitations
+## v0.7.7 Limitations
 
 The following behaviors are intentionally constrained or deferred.
 
@@ -3870,16 +3872,16 @@ The following words are reserved by the language and cannot be used as value nam
 
 ### Reserved Symbols
 
-| Symbol | Use                                                                                                         |
-| ------ | ----------------------------------------------------------------------------------------------------------- |
-| `.`    | Period — denotes containment in the file, script, folder, and value hierarchy. Exclusive to this hierarchy. |
-| `#`    | Hash — denotes a container tag. Not part of the period chain.                                               |
+| Symbol | Use |
+| --- | --- |
+| `.` | Period — denotes containment in the file, script, folder, and value hierarchy. Exclusive to this hierarchy. |
+| `#` | Hash — denotes a container tag. Not part of the period chain. |
 
 No other special characters carry structural meaning in the reference or container systems. Parentheses `(` and `)` are used as grouping delimiters in math expressions. Quotation marks `"` delimit text literals. Commas `,` separate values in multi-value instructions.
 
 ### Script Self-Reference
 
-`.scriptname.script` used from within `.scriptname` resolves to the script's own identity, not its contents. Self-reference has no practical use in v0.7.8 and is reserved for future introspection features.
+`.scriptname.script` used from within `.scriptname` resolves to the script's own identity, not its contents. Self-reference has no practical use in v0.7.7 and is reserved for future introspection features.
 
 ## Example Programs
 
