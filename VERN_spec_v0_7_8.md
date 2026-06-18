@@ -2640,6 +2640,50 @@ script .main
 end script
 ```
 
+### Getting File Metadata
+
+```
+get details .filename as dictionary fileinfo
+get details current item as dictionary fileinfo
+get details path .filepath as dictionary fileinfo
+```
+
+Retrieves filesystem metadata for a file and populates a declared dictionary with five fixed keys. The target dictionary must be declared at file level before `get details` is called. All five keys are always present after the call — existing dictionary contents are replaced.
+
+| Key | Type | Contents |
+| --- | --- | --- |
+| `"name"` | text | Filename only, no path |
+| `"size"` | number | File size in bytes |
+| `"modified"` | text | Last modified timestamp — `YYYY-MM-DD HH:MI:SS` |
+| `"created"` | text | Creation timestamp — `YYYY-MM-DD HH:MI:SS` (if the platform does not support creation timestamps, contains the same value as `"modified"`) |
+| `"extension"` | text | File extension including the period, e.g. `".md"` |
+
+`get details` accepts any valid value reference in the filename position: a named value reference (`.filename`), `current item` inside a repeat block, or `path` with a dynamic path reference.
+
+```
+dictionary fileinfo
+end dictionary
+
+list filenames
+end list
+
+script .main
+    get files in current folder as list filenames
+    repeat through list filenames
+        get details current item as dictionary fileinfo
+        get dictionary fileinfo key "name" as .fname
+        get dictionary fileinfo key "modified" as .fmodified
+        show .fname + " — " + .fmodified
+    end repeat
+end script
+```
+
+**Error behaviors:**
+
+- File does not exist — fatal
+- Target is a directory — fatal
+- Target dictionary is undeclared — fatal
+
 ### File Operation Error Behaviors
 
 **File not found on read** — fatal. Error log records the filename and line number.
@@ -2658,7 +2702,11 @@ end script
 
 **File name not followed by a recognized extension** — fatal. See Non-VERN File Extensions for the full list of recognized extensions.
 
-**`get files` on an empty directory** — returns empty list, not an error.
+**`get details` on a nonexistent file** — fatal.
+
+**`get details` on a directory** — fatal. `get details` is a file operation only.
+
+**`get details` with an undeclared target dictionary** — fatal.
 
 **`exist` outside an `if` statement** — fatal.
 
@@ -3445,6 +3493,32 @@ respond "" status 200
 
 **No respond in script:** if a routed script completes without a `respond` instruction, VERN sends a 200 status with no body automatically. This is not an error.
 
+**Response headers:**
+
+```
+respond .result status 200 with headers dictionary responseheaders
+respond "" status 200 with headers dictionary responseheaders
+respond list listname status 200 with headers dictionary responseheaders
+respond dictionary dictname status 200 with headers dictionary responseheaders
+respond file .filepath status 200 with headers dictionary responseheaders
+respond .result with headers dictionary responseheaders
+```
+
+`with headers dictionary` sends custom HTTP response headers alongside the response body. The named dictionary must be declared at file level. Keys and values must both be text type. `with headers dictionary` always comes after `status` when both are present — if `status` is omitted, the response defaults to 200. Valid only inside a routed script. Any other position is fatal.
+
+```
+dictionary corsheaders
+    "Access-Control-Allow-Origin" : "*"
+    "Access-Control-Allow-Methods" : "POST, GET, OPTIONS"
+    "Content-Type" : "application/json"
+end dictionary
+
+script .getdata
+    get files in current folder as list filenames
+    respond list filenames status 200 with headers dictionary corsheaders
+end script
+```
+
 ### Full Example
 
 ```
@@ -3494,6 +3568,10 @@ wait keep
 - `respond file` with a nonexistent file — 404 response, not a program error
 - `respond file` with an unrecognized extension — fatal
 - `respond` with an uninitialized value — fatal
+- `with headers dictionary` references an undeclared dictionary — fatal
+- `with headers dictionary` contains a non-text key or value — fatal
+- `with headers dictionary` appears before `status` — fatal
+- `with headers dictionary` used outside a routed script — fatal
 - Status code is not a whole number literal — fatal
 - Incoming request to an undeclared route — 404 response, no script called, not a program error
 
@@ -3797,7 +3875,7 @@ The following behaviors are intentionally constrained or deferred.
 
 The following words are reserved by the language and cannot be used as value names, script names, or list names:
 
-`set`, `to`, `show`, `ask`, `read`, `write`, `append`, `from`, `if`, `then`, `repeat`, `times`, `end`, `stop`, `start`, `at`, `run`, `define`, `as`, `script`, `and`, `or`, `not`, `is`, `true`, `false`, `add`, `subtract`, `multiply`, `divide`, `convert`, `number`, `text`, `return`, `pass`, `loop`, `import`, `list`, `put`, `in`, `not in`, `remove`, `through`, `get`, `current`, `item`, `count`, `round`, `floor`, `ceiling`, `power`, `root`, `remainder`, `random`, `absolute`, `minimum`, `maximum`, `percent`, `of`, `length`, `find`, `extract`, `replace`, `with`, `beginning`, `finishing`, `attempt`, `fail`, `reason`, `date`, `time`, `difference`, `between`, `days`, `hours`, `minutes`, `format`, `using`, `while`, `otherwise`, `exist`, `delete`, `files`, `folder`, `parent`, `sine`, `cosine`, `tangent`, `arcsine`, `arccosine`, `arctangent`, `hyperbolic`, `arc`, `ln`, `log`, `base`, `pi`, `e`, `tau`, `infinity`, `degrees`, `radians`, `sum`, `factorial`, `combinations`, `permutations`, `sign`, `exit`, `next`, `by`, `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts`, `ends`, `ascending`, `descending`, `sort`, `reverse`, `slice`, `combine`, `dictionary`, `key`, `value`, `takes`, `type`, `fetch`, `send`, `decimals`, `thousands`, `padded`, `path`, `none`, `invoke`, `update`, `headers`, `status`, `response`, `parse`, `inspect`, `json`, `csv`, `xml`, `ini`, `wait`, `cycle`, `reset`, `keep`, `serve`, `route`, `respond`, `request`
+`set`, `to`, `show`, `ask`, `read`, `write`, `append`, `from`, `if`, `then`, `repeat`, `times`, `end`, `stop`, `start`, `at`, `run`, `define`, `as`, `script`, `and`, `or`, `not`, `is`, `true`, `false`, `add`, `subtract`, `multiply`, `divide`, `convert`, `number`, `text`, `return`, `pass`, `loop`, `import`, `list`, `put`, `in`, `not in`, `remove`, `through`, `get`, `current`, `item`, `count`, `round`, `floor`, `ceiling`, `power`, `root`, `remainder`, `random`, `absolute`, `minimum`, `maximum`, `percent`, `of`, `length`, `find`, `extract`, `replace`, `with`, `beginning`, `finishing`, `attempt`, `fail`, `reason`, `date`, `time`, `difference`, `between`, `days`, `hours`, `minutes`, `format`, `using`, `while`, `otherwise`, `exist`, `delete`, `files`, `folder`, `parent`, `sine`, `cosine`, `tangent`, `arcsine`, `arccosine`, `arctangent`, `hyperbolic`, `arc`, `ln`, `log`, `base`, `pi`, `e`, `tau`, `infinity`, `degrees`, `radians`, `sum`, `factorial`, `combinations`, `permutations`, `sign`, `exit`, `next`, `by`, `split`, `join`, `trim`, `uppercase`, `lowercase`, `starts`, `ends`, `ascending`, `descending`, `sort`, `reverse`, `slice`, `combine`, `dictionary`, `key`, `value`, `takes`, `type`, `fetch`, `send`, `decimals`, `thousands`, `padded`, `path`, `none`, `invoke`, `update`, `headers`, `status`, `response`, `parse`, `inspect`, `json`, `csv`, `xml`, `ini`, `wait`, `cycle`, `reset`, `keep`, `serve`, `route`, `respond`, `request`, `details`
 
 **Contextual resolution notes:**
 
@@ -3813,6 +3891,8 @@ The following words are reserved by the language and cannot be used as value nam
 - `to` is valid in two instruction-leading positions: (1) `to degrees .value as .result` and (2) `to radians .value as .result`. In all other positions `to` is a mid-instruction destination marker. The parser resolves by whether `to` is the first token on a line.
 - `radians` is valid in exactly two positions: (1) as an optional modifier between a value reference and `as` in trig operations, (2) as the target word in `to radians`. Any other position is fatal.
 - `degrees` is valid only as the target word in `to degrees`. Any other position is fatal. Trig operations default to degrees without requiring the word.
+- `details` is valid in exactly one position: after `get`, followed by a value reference, `current item`, or `path` and a dynamic path reference, then `as dictionary`, then a declared dictionary name. Any other position is fatal.
+- `with headers dictionary` is valid in exactly one position: after the value, file reference, list reference, or dictionary reference in a `respond` instruction, optionally after `status N`. Must be followed by a declared dictionary name. Any other position is fatal.
 - `base` is valid only after a value reference in `log .value base n`. Any other position is fatal.
 - `log` with no `base` modifier is base 10. `log` with a `base` modifier is arbitrary base. The parser resolves by whether `base` follows the value reference.
 - `arctangent` with one value reference before `as` or `radians` is single-argument. `arctangent` with two value references is two-argument. The parser resolves by count of references.
@@ -3821,7 +3901,7 @@ The following words are reserved by the language and cannot be used as value nam
 - `e` is a reserved constant. User-defined values use the period prefix and cannot conflict.
 - `pi`, `tau`, and `infinity` are reserved constants. User-defined values use the period prefix and cannot conflict.
 - `as` is valid in exactly these positions: (1) after a value reference or expression in assignment operations, (2) after a list name and number in `get list name n as`, (3) after a text literal in `define "word" as`, (4) after a list operation keyword (`sort`, `reverse`, `slice`, `combine`, `split`) followed by a list reference — in this position `as list` assigns the result to the named list that follows, (5) after a `type of` expression in type checking operations, (6) after a URL in `fetch` to name the response value — `fetch .url as .response`. Any other position is fatal.
-- `with` is valid in exactly three positions: (1) as the replacement marker in `replace "old" with "new"`, (2) as the parameter passing marker in `run .script with`, (3) as the list separator in `combine list first with list second`. The parser resolves by position — following `replace` it is a replacement marker; following a `run` script reference it is a parameter marker; following a list reference after `combine list` it is a list separator.
+- `with` is valid in exactly four positions: (1) as the replacement marker in `replace "old" with "new"`, (2) as the parameter passing marker in `run .script with`, (3) as the list separator in `combine list first with list second`, (4) as the start of `with headers dictionary` in a `respond` instruction. The parser resolves by position — following `replace` it is a replacement marker; following a `run` script reference it is a parameter marker; following a list reference after `combine list` it is a list separator; following a value, list, dictionary, file reference, or status code in `respond` it is the headers marker.
 - `exit` is valid only immediately preceding `loop`. `exit` alone is fatal.
 - `next` is valid only immediately preceding `item`. `next` alone is fatal.
 - `current` is valid as the first word of `current item`, `current key`, or `current value`. The compound is resolved by what follows `current`. Any other position is fatal.
