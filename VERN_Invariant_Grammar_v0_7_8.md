@@ -1,4 +1,5 @@
 # VERN Invariant Grammar Specification v0.7.8
+
 ## Universal Imperative Grammar with Vocabulary Bindings
 
 **Document Version:** 7.8
@@ -200,10 +201,12 @@ LAUNCH_INSTRUCTION ::= LAUNCH_KW FILE_REFERENCE
 WAIT_INSTRUCTION   ::= WAIT_KW NUMBER SECONDS_KW
                      | WAIT_KW NUMBER MILLISECONDS_KW
 
-RESPOND_INSTRUCTION ::= RESPOND_KW (REFERENCE | TEXT | NUMBER)  [STATUS_KW NUMBER]
-                       | RESPOND_KW FILE_KW FILE_REFERENCE [STATUS_KW NUMBER]
-                       | RESPOND_KW FILE_KW PATH_KW REFERENCE [STATUS_KW NUMBER]
-                       | RESPOND_KW TEXT [STATUS_KW NUMBER]
+RESPOND_INSTRUCTION ::= RESPOND_KW (REFERENCE | TEXT | NUMBER)  [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
+                       | RESPOND_KW FILE_KW FILE_REFERENCE [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
+                       | RESPOND_KW FILE_KW PATH_KW REFERENCE [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
+                       | RESPOND_KW TEXT [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
+                       | RESPOND_KW LIST_KW LIST_REF [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
+                       | RESPOND_KW DICTIONARY_KW IDENTIFIER [STATUS_KW NUMBER] [WITH_KW HEADERS_KW DICTIONARY_KW IDENTIFIER]
 
 CONVERT_INSTRUCTION ::= CONVERT_KW (REFERENCE | LOOP_KW | CURRENT_ITEM_KW | CURRENT_KEY_KW | CURRENT_VALUE_KW) TO_KW TYPE_KW AS_KW REFERENCE
 TYPE_KW ::= NUMBER_KW | TEXT_KW | DATE_KW | TIME_KW
@@ -256,7 +259,8 @@ DELETE_INSTRUCTION    ::= DELETE_KW FILE_REFERENCE
                         | DELETE_KW PATH_KW REFERENCE
 EXIST_INSTRUCTION     ::= IF_KW FILE_REFERENCE EXIST_KW THEN_KW INSTRUCTION
                         | IF_KW FILE_REFERENCE EXIST_KW INSTRUCTION* [OTHERWISE_KW INSTRUCTION*] END_IF
-GET_FILES_INSTRUCTION ::= GET_KW FILES_KW IN_KW DIR_REFERENCE AS_KW LIST_KW LIST_REF
+GET_FILES_INSTRUCTION   ::= GET_KW FILES_KW IN_KW DIR_REFERENCE AS_KW LIST_KW LIST_REF
+GET_DETAILS_INSTRUCTION ::= GET_KW DETAILS_KW (REFERENCE | CURRENT_ITEM_KW | PATH_KW REFERENCE) AS_KW DICTIONARY_KW IDENTIFIER
 
 DYNAMIC_READ_INSTRUCTION   ::= READ_KW REFERENCE FROM_KW PATH_KW REFERENCE
 DYNAMIC_WRITE_INSTRUCTION  ::= WRITE_KW REFERENCE TO_KW PATH_KW REFERENCE
@@ -422,7 +426,7 @@ COMPARISON_OP ::= IS_EQUAL_TO_KW | IS_NOT_KW
 The following tokens must be mapped by every vocabulary binding. Symbol operators (`+`, `-`, `*`, `/`, `=`, `!=`, `>`, `<`, `>=`, `<=`) are universal across all bindings and require no mapping.
 
 | Token | Role |
-|---|---|
+| --- | --- |
 | `SHOW_KW` | display output |
 | `ASK_KW` | prompt user input |
 | `READ_KW` | read from file |
@@ -592,6 +596,7 @@ The following tokens must be mapped by every vocabulary binding. Symbol operator
 | `REQUEST_HEADERS_KW` | incoming request headers as dictionary (read-only, inside routed script only) |
 | `REQUEST_METHOD_KW` | incoming request HTTP method as text (read-only, inside routed script only) |
 | `FILE_KW` | file response marker in respond instruction — signals that what follows is a file reference |
+| `DETAILS_KW` | file metadata retrieval — populates a dictionary with filesystem attributes of a named file |
 
 ### Invariant Properties
 
@@ -800,7 +805,7 @@ REQUEST_PATH_KW                    request path
 REQUEST_HEADERS_KW                 request headers
 REQUEST_METHOD_KW                  request method
 FILE_KW                            file
-LAUNCH_KW                          launch
+DETAILS_KW                         details
 SECONDS_KW                         seconds
 MILLISECONDS_KW                    milliseconds
 ```
@@ -981,7 +986,7 @@ REQUEST_PATH_KW                    njia ya ombi
 REQUEST_HEADERS_KW                 vichwa vya ombi
 REQUEST_METHOD_KW                  njia ya HTTP
 FILE_KW                            faili
-LAUNCH_KW                          anzisha
+DETAILS_KW                         maelezo
 SECONDS_KW                         sekunde
 MILLISECONDS_KW                    millisekunde
 ```
@@ -1162,7 +1167,7 @@ REQUEST_PATH_KW                    リクエストパス         rikuesuto pasu
 REQUEST_HEADERS_KW                 リクエストヘッダー     rikuesuto heddā
 REQUEST_METHOD_KW                  リクエスト方法         rikuesuto hōhō
 FILE_KW                            ファイル               fairu
-LAUNCH_KW                          起動する               kidō suru
+DETAILS_KW                         詳細                   shōsai
 SECONDS_KW                         秒                     byō
 MILLISECONDS_KW                    ミリ秒                 miri-byō
 ```
@@ -1345,7 +1350,7 @@ REQUEST_PATH_KW                    مسار الطلب             masār al-ṭ
 REQUEST_HEADERS_KW                 ترويسات الطلب          tarwīsāt al-ṭalab
 REQUEST_METHOD_KW                  طريقة الطلب            ṭarīqat al-ṭalab
 FILE_KW                            ملف                    malaf
-LAUNCH_KW                          شغّل                   shaggil
+DETAILS_KW                         تفاصيل                 tafāṣīl
 SECONDS_KW                         ثوانٍ                  thawānin
 MILLISECONDS_KW                    ميلي ثانية             milli thāniya
 ```
@@ -1359,22 +1364,24 @@ Any new vocabulary binding for VERN must satisfy the following requirements to b
 ### Required
 
 1. **Complete mapping** — every token in the invariant token list must have exactly one mapped keyword or phrase in the target language
-
+  
 2. **No collisions** — no two tokens may share the same mapped keyword. If a target language uses the same word for two different concepts, one must be disambiguated
-
+  
 3. **Imperative mood** — keywords should use imperative verb forms where the target language has them
-
+  
 4. **Unicode compliance** — all keywords must be valid Unicode
-
+  
 5. **Symbol preservation** — the symbol forms (`+`, `-`, `*`, `/`, `=`, `!=`, `>`, `<`, `>=`, `<=`, `.`, `#`, `"`, `,`, `//`, `(`, `)`) are identical in all bindings and are not localized
-
+  
 6. **Semantic equivalence** — a program written in any binding must execute identically to the same program written in any other binding. The binding changes the words, not the behavior
+  
 
 ### Recommended
 
 7. **Cultural mapping via `define`** — bindings are encouraged to include a standard library of `define` extensions mapping culturally native concepts to VERN operations
-
+  
 8. **Bidirectional support** — the binding table should support both directions: human language → invariant token (for parsing) and invariant token → human language (for error messages and output)
+  
 
 ---
 
