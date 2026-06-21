@@ -1,6 +1,6 @@
 # VERN
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20708673.svg)](https://doi.org/10.5281/zenodo.20708673)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20788399.svg)](https://doi.org/10.5281/zenodo.20788399)
 
 **A universal imperative programming grammar with replaceable vocabulary bindings.**
 
@@ -29,8 +29,8 @@ VERN's claim: a general-purpose imperative grammar in which the executable keywo
 
 | Document | Description |
 | --- | --- |
-| `VERN_Invariant_Grammar_v0_7_8.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
-| `VERN_spec_v0_7_8.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, current folder directory reference, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, and timed pauses. |
+| `VERN_Invariant_Grammar_v0_8_0.md` | The core prior art document. Abstract grammar specification plus four vocabulary bindings: English, Swahili, Japanese, and Arabic. |
+| `VERN_spec_v0_8_0.md` | The full language specification. Syntax, grammar rules, reference system, data handling, collections, dictionaries, nested data structures, imports, extended math, trigonometry, logarithms, mathematical constants, angle conversion, conditionals, repetition, loop control, scripts, script parameters, return values, multiple return values, first-class functions, error recovery, typed exception handling, date and time, string operations, file operations, non-VERN file extensions, dynamic file references, current folder directory reference, core operations, type checking, number formatting, multi-line text, networking, parse and inspect, none type, execution modes, inter-program stop, concurrent program launching, timed pauses, hashing and verification, unique ID generation, and email. |
 | `vern_installer.iss` | Inno Setup script for building the Windows installer. |
 
 ---
@@ -86,6 +86,14 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 ---
 
 ## Key Features
+
+**Hashing and verification** — `hash .value as .target` produces a one-way Argon2id hash of a text value, suitable for storing passwords and other sensitive text. `verify .input match .hashvalue as .target` checks a plain text value against a previously produced hash without the programmer ever handling the comparison manually. The algorithm is fixed, not configurable, and documented in the spec so it can be verified independently.
+
+**Unique ID generation** — `create id as .target` produces a UUID version 4 — a randomly generated identifier, for all practical purposes guaranteed not to collide with another one generated elsewhere. Useful for labeling records, files, or sessions with a name that cannot clash.
+
+**Email** — `mail .recipient subject .subjectline body .messagebody attach .filepath using #mailsettings.mailconfig.vern` sends email through a standard SMTP connection. `mail` is a distinct instruction from `send` (HTTP POST) to avoid any overlap between the two. Mail settings — server, port, username, password, and encryption flag — are declared in a separate container file, kept out of program logic. All five settings fields are required; none can be silently skipped, since this is credential data.
+
+**Container closing markers** — every container block now opens with `#containername` and closes with a matching `end #containername`, consistent with every other block type in the language (`script` / `end script`, `list` / `end list`). The repeated tag name on the closing line is self-documenting in files with multiple containers and catches a mismatched close immediately.
 
 **Current folder reference** — `current folder` resolves to the directory the program file itself lives in, regardless of where VERN was launched from. Used in file listing and directory operations. Requires no chain and no period prefix.
 
@@ -155,9 +163,9 @@ Both programs execute identically. The grammar is invariant. The vocabulary is n
 
 ## Download
 
-**[Download VERN v0.7.8-bugfix for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.7.8-bugfix)**
+**[Download VERN v0.8.0 for Windows](https://github.com/designercrack-777/VERN/releases/tag/v0.8.0)**
 
-Run `vern_setup_v0.7.8.exe`, follow the installer, open a new terminal and type `vern` to confirm. No Python or other dependencies required.
+Run `vern_setup_v0.8.0.exe`, follow the installer, open a new terminal and type `vern` to confirm. No Python or other dependencies required.
 
 Mac and Linux builds are not yet packaged. The interpreter source is cross-platform — build from source using PyInstaller.
 
@@ -165,9 +173,9 @@ Mac and Linux builds are not yet packaged. The interpreter source is cross-platf
 
 ## Status
 
-**Current version: v0.7.8 — Specification complete. Interpreter complete. Windows installer available.**
+**Current version: v0.8.0 — Specification complete. Interpreter complete. Windows installer available.**
 
-The interpreter implements every v0.7.8 feature and is distributed as a standalone Windows executable with a proper installer. No Python or dependencies required.
+The interpreter implements every v0.8.0 feature and is distributed as a standalone Windows executable with a proper installer. No Python or dependencies required.
 
 ---
 
@@ -179,7 +187,7 @@ VERN is free for personal, educational, and non-commercial use. Commercial use r
 
 ## Prior Art Notice
 
-This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_7_8.md`. Zenodo deposit: https://doi.org/10.5281/zenodo.20708673
+This repository constitutes a public prior art disclosure for the VERN language architecture, specifically the invariant grammar with replaceable vocabulary bindings as described in `VERN_Invariant_Grammar_v0_8_0.md`. Zenodo deposit: https://doi.org/10.5281/zenodo.20788399
 
 ---
 
