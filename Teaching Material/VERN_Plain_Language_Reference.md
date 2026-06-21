@@ -1029,6 +1029,7 @@ Containers hold different states of values — they are used to swap out data de
 ```
 #containername
     set .greeting to "hello"
+end #containername
 ```
 
 ### Using a Container on a Script Run
